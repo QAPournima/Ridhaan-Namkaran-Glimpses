@@ -371,10 +371,20 @@
         if (!driveUpload.endpoint || String(driveUpload.endpoint).includes("PASTE_")) {
             throw new Error("Drive endpoint is not configured");
         }
-        return postToDrive(driveUpload.endpoint, {
-            action: "adminLogin",
-            password: password || "",
-        });
+        try {
+            return await postToDrive(driveUpload.endpoint, {
+                action: "adminLogin",
+                password: password || "",
+            });
+        } catch (error) {
+            const message = String((error && error.message) || error || "");
+            if (/missing file data/i.test(message)) {
+                throw new Error(
+                    "Apps Script is outdated. Paste the latest Code.gs, then Deploy → Manage deployments → New version → Deploy."
+                );
+            }
+            throw error;
+        }
     }
 
     global.NamkaranDrive = {
