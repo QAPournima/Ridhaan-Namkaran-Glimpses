@@ -1,0 +1,5 @@
+/review/  /review  301
+/review   /review.html  200
+
+# The Apps Script source is reference material, not part of the website
+/scripts/*  /  404!

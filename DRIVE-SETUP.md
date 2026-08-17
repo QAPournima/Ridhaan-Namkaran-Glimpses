@@ -44,18 +44,18 @@ For the website to show Drive images/videos publicly:
 
 ## Admin password (keep off the website)
 
-Do **not** put the admin password in `gallery.json` (it would be public on the live site).
+Do **not** put the admin password in `gallery.json`, and do **not** hardcode it in
+`scripts/google-apps-script-guest-upload.gs` — both are published with the live site.
 
-Set it only in Apps Script `Code.gs`:
+Store it as an Apps Script property instead:
 
-```js
-const ADMIN_PASSWORD = "your-strong-password";
-```
+1. Apps Script → **Project Settings** → **Script properties** → **Add script property**
+2. Name: `ADMIN_PASSWORD`
+3. Value: your strong password
+4. Save, then **Deploy → Manage deployments → Edit → New version**
 
-Then redeploy a **New version**. Admin login on `review.html` checks this password through Apps Script and never exposes it in frontend files.
-  "listAction": "list"
-}
-```
+Admin login on `review.html` checks the password through Apps Script and never
+exposes it in frontend files or in this repository.
 
 6. Refresh the website
 

@@ -18,6 +18,9 @@
  * 4. Copy the Web app URL into gallery.json → driveUpload.endpoint
  * 5. Set driveUpload.enabled = true
  * 6. Share the root folder (and files) as “Anyone with the link” for public viewing
+ * 7. Project Settings → Script properties → add ADMIN_PASSWORD with your password.
+ *    This file is committed to the website repository, so the password must never
+ *    be typed into it — the script reads it from that property at login time.
  *
  * ENDPOINTS
  *   GET  ?action=list        → photos + videos + guest uploads (all statuses)
@@ -31,10 +34,8 @@ const ROOT_FOLDER_ID = "19kyYw30b3oeF0KuBJZHZMbYH0UzYVc-B";
 const PHOTOS_FOLDER_NAME = "photos";
 const VIDEOS_FOLDER_NAME = "videos";
 const GUEST_FOLDER_NAME = "Guest Uploads";
-// Keep this ONLY in Apps Script — never put it in gallery.json or the website files
-const ADMIN_PASSWORD = "AdminRidhaan2026";
 // Bump this whenever you redeploy so the website can detect stale deployments
-const BRIDGE_VERSION = "2026-08-17-admin-auth-v3";
+const BRIDGE_VERSION = "2026-08-17-admin-auth-v4";
 const ADMIN_TOKEN_TTL_SECONDS = 6 * 60 * 60; // 6 hours
 
 function doGet(e) {
@@ -182,11 +183,22 @@ function listGuestFiles_() {
   return out;
 }
 
+function getAdminPassword_() {
+  // Stored in Apps Script → Project Settings → Script properties → ADMIN_PASSWORD.
+  // Never hardcode it in this file: the file ships with the website repository.
+  return PropertiesService.getScriptProperties().getProperty("ADMIN_PASSWORD") || "";
+}
+
 function adminLogin_(password) {
-  if (!ADMIN_PASSWORD) {
-    return { ok: false, message: "Admin password is not configured in Apps Script." };
+  const expected = getAdminPassword_();
+  if (!expected) {
+    return {
+      ok: false,
+      message:
+        "Admin password is not configured. Add a script property named ADMIN_PASSWORD in Apps Script → Project Settings.",
+    };
   }
-  if (String(password || "") !== String(ADMIN_PASSWORD)) {
+  if (String(password || "") !== String(expected)) {
     return { ok: false, message: "That admin password doesn't seem right." };
   }
 
