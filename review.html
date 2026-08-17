@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Review | Ridhaan's Namkaran</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Montserrat:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="gallery.css">
+    <link rel="stylesheet" href="review.css">
+</head>
+<body class="review-page">
+
+<header class="site-header">
+    <a href="glimpses.html" class="logo-link" aria-label="Ridhaan's Namkaran">
+        <img src="assets/logo.png" alt="Ridhaan's Namkaran" class="logo">
+    </a>
+    <nav class="site-nav" aria-label="Admin">
+        <a href="glimpses.html" class="nav-link">Gallery</a>
+        <button type="button" class="nav-link nav-button" id="adminLogout" hidden>Admin logout</button>
+    </nav>
+</header>
+
+<main class="review-main">
+    <section class="review-login" id="reviewLogin">
+        <p class="section-eyebrow">ADMIN</p>
+        <h1>Review guest uploads</h1>
+        <p class="review-intro">Approve or reject guest photos and videos before they appear in Guest Uploads.</p>
+
+        <form class="review-login-form" id="adminLoginForm">
+            <label class="upload-field" for="adminPassword">
+                <span>Admin password</span>
+                <input type="password" id="adminPassword" autocomplete="current-password" required>
+            </label>
+            <p class="upload-status is-error" id="adminLoginError" hidden></p>
+            <button type="submit" class="upload-submit">Enter review</button>
+        </form>
+    </section>
+
+    <section class="review-dashboard" id="reviewDashboard" hidden>
+        <div class="section-heading">
+            <p class="section-eyebrow">MODERATION</p>
+            <h2>Guest upload review</h2>
+            <p class="section-note">Pending items are hidden from guests until you approve them. Files live in Google Drive → Guest Uploads.</p>
+        </div>
+
+        <p class="drive-status" id="driveStatus" role="status" hidden></p>
+
+        <div class="review-tabs" role="tablist">
+            <button type="button" class="review-tab is-active" data-status="pending" aria-selected="true">
+                Under review <span id="countPending">0</span>
+            </button>
+            <button type="button" class="review-tab" data-status="approved" aria-selected="false">
+                Approved <span id="countApproved">0</span>
+            </button>
+            <button type="button" class="review-tab" data-status="rejected" aria-selected="false">
+                Rejected <span id="countRejected">0</span>
+            </button>
+        </div>
+
+        <div class="review-grid" id="reviewGrid" aria-live="polite"></div>
+        <p class="empty-state" id="reviewEmpty" hidden>No items in this list.</p>
+    </section>
+</main>
+
+<script src="drive.js"></script>
+<script src="review.js"></script>
+</body>
+</html>

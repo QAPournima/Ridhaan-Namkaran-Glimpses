@@ -1,0 +1,298 @@
+(() => {
+    "use strict";
+
+    const ADMIN_KEY = "namkaran_admin_authenticated";
+    const STATUS_PENDING = "pending";
+    const STATUS_APPROVED = "approved";
+    const STATUS_REJECTED = "rejected";
+
+    const reviewLogin = document.getElementById("reviewLogin");
+    const reviewDashboard = document.getElementById("reviewDashboard");
+    const adminLoginForm = document.getElementById("adminLoginForm");
+    const adminPasswordInput = document.getElementById("adminPassword");
+    const adminLoginError = document.getElementById("adminLoginError");
+    const adminLogout = document.getElementById("adminLogout");
+    const reviewGrid = document.getElementById("reviewGrid");
+    const reviewEmpty = document.getElementById("reviewEmpty");
+    const countPending = document.getElementById("countPending");
+    const countApproved = document.getElementById("countApproved");
+    const countRejected = document.getElementById("countRejected");
+    const driveStatus = document.getElementById("driveStatus");
+
+    let adminPassword = "AdminRidhaan2026";
+    let galleryConfig = null;
+    let records = [];
+    let activeStatus = STATUS_PENDING;
+
+    function isAdmin() {
+        return sessionStorage.getItem(ADMIN_KEY) === "true";
+    }
+
+    function setAdmin(value) {
+        if (value) sessionStorage.setItem(ADMIN_KEY, "true");
+        else sessionStorage.removeItem(ADMIN_KEY);
+    }
+
+    function showLoginError(message) {
+        adminLoginError.hidden = !message;
+        adminLoginError.textContent = message || "";
+    }
+
+    function setDriveStatus(message, isError) {
+        if (!driveStatus) return;
+        if (!message) {
+            driveStatus.hidden = true;
+            driveStatus.textContent = "";
+            driveStatus.classList.remove("is-error", "is-success");
+            return;
+        }
+        driveStatus.hidden = false;
+        driveStatus.textContent = message;
+        driveStatus.classList.toggle("is-error", Boolean(isError));
+        driveStatus.classList.toggle("is-success", !isError);
+    }
+
+    function showDashboard(show) {
+        reviewLogin.hidden = show;
+        reviewDashboard.hidden = !show;
+        adminLogout.hidden = !show;
+        if (show) {
+            setDriveStatus("Loading guest uploads from Google Drive…");
+        }
+    }
+
+    async function loadConfig() {
+        if (window.location.protocol === "file:") {
+            throw new Error(
+                "Open review via http://localhost:8000/review.html (not as a local file). file:// cannot load Drive."
+            );
+        }
+        if (!window.NamkaranDrive) {
+            throw new Error("drive.js failed to load");
+        }
+        galleryConfig = await window.NamkaranDrive.loadGalleryConfig();
+        if (galleryConfig.adminPassword) {
+            adminPassword = galleryConfig.adminPassword;
+        }
+        const endpoint = galleryConfig.driveUpload && galleryConfig.driveUpload.endpoint;
+        if (!endpoint || String(endpoint).includes("PASTE_") || String(endpoint).includes("/macros/library/")) {
+            throw new Error(
+                "Set gallery.json → driveUpload.endpoint to your Web app URL ending in /exec"
+            );
+        }
+    }
+
+    async function refreshRecords() {
+        if (!window.NamkaranDrive || !galleryConfig) {
+            records = [];
+            updateCounts();
+            renderList();
+            return;
+        }
+
+        try {
+            const guests = await window.NamkaranDrive.loadDriveGuestList(galleryConfig);
+            records = guests.map((guest) => ({
+                id: guest.driveId,
+                driveId: guest.driveId,
+                type: guest.type === "video" ? "video" : "image",
+                name: guest.name || guest.title || "Guest upload",
+                guestName: guest.guestName || "Guest",
+                status: guest.status || STATUS_PENDING,
+                createdAt: guest.createdAt || 0,
+                src:
+                    guest.type === "video"
+                        ? window.NamkaranDrive.drivePreviewUrl(guest.driveId)
+                        : window.NamkaranDrive.driveImageUrl(guest.driveId),
+                viewUrl: guest.viewUrl || "",
+            }));
+            records.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+            setDriveStatus(`Loaded ${records.length} guest file(s) from Drive.`);
+        } catch (error) {
+            console.error(error);
+            records = [];
+            setDriveStatus(
+                error.message ||
+                    "Could not load guest uploads from Drive. Update & redeploy Apps Script, then hard-refresh.",
+                true
+            );
+        }
+
+        updateCounts();
+        renderList();
+    }
+
+    function updateCounts() {
+        const pending = records.filter((r) => r.status === STATUS_PENDING).length;
+        const approved = records.filter((r) => r.status === STATUS_APPROVED).length;
+        const rejected = records.filter((r) => r.status === STATUS_REJECTED).length;
+        countPending.textContent = String(pending);
+        countApproved.textContent = String(approved);
+        countRejected.textContent = String(rejected);
+    }
+
+    function renderList() {
+        const filtered = records.filter((r) => r.status === activeStatus);
+        reviewGrid.innerHTML = "";
+        reviewEmpty.hidden = filtered.length > 0;
+
+        filtered.forEach((record) => {
+            const card = document.createElement("article");
+            card.className = "review-card";
+
+            const media = document.createElement("div");
+            media.className = "review-media";
+
+            if (record.type === "image") {
+                const img = document.createElement("img");
+                img.alt = record.name;
+                if (record.driveId && window.NamkaranDrive && window.NamkaranDrive.bindDriveImage) {
+                    window.NamkaranDrive.bindDriveImage(img, record.driveId, record.src);
+                } else {
+                    img.referrerPolicy = "no-referrer";
+                    img.src = record.src;
+                }
+                media.appendChild(img);
+            } else {
+                const iframe = document.createElement("iframe");
+                iframe.src = record.src;
+                iframe.title = record.name;
+                iframe.allow = "autoplay";
+                iframe.loading = "lazy";
+                media.appendChild(iframe);
+            }
+
+            const pill = document.createElement("span");
+            pill.className = "review-status-pill";
+            if (activeStatus === STATUS_APPROVED) pill.classList.add("is-approved");
+            if (activeStatus === STATUS_REJECTED) pill.classList.add("is-rejected");
+            pill.textContent =
+                activeStatus === STATUS_PENDING
+                    ? "Under review"
+                    : activeStatus === STATUS_APPROVED
+                      ? "Approved"
+                      : "Rejected";
+            media.appendChild(pill);
+
+            const body = document.createElement("div");
+            body.className = "review-card-body";
+
+            const title = document.createElement("h3");
+            title.textContent = record.name;
+
+            const meta = document.createElement("p");
+            meta.className = "review-meta";
+            const when = record.createdAt
+                ? new Date(record.createdAt).toLocaleString()
+                : "";
+            meta.textContent = `${record.guestName || "Guest"}${when ? " · " + when : ""}`;
+
+            const actions = document.createElement("div");
+            actions.className = "review-actions";
+
+            if (activeStatus !== STATUS_APPROVED) {
+                const approve = document.createElement("button");
+                approve.type = "button";
+                approve.className = "review-approve";
+                approve.textContent = "Approve";
+                approve.addEventListener("click", () => setStatus(record, STATUS_APPROVED, approve));
+                actions.appendChild(approve);
+            }
+
+            if (activeStatus !== STATUS_REJECTED) {
+                const reject = document.createElement("button");
+                reject.type = "button";
+                reject.className = "review-reject";
+                reject.textContent = "Reject";
+                reject.addEventListener("click", () => setStatus(record, STATUS_REJECTED, reject));
+                actions.appendChild(reject);
+            }
+
+            if (record.viewUrl) {
+                const open = document.createElement("a");
+                open.className = "review-open-link";
+                open.href = record.viewUrl;
+                open.target = "_blank";
+                open.rel = "noopener noreferrer";
+                open.textContent = "Open in Drive";
+                actions.appendChild(open);
+            }
+
+            body.append(title, meta, actions);
+            card.append(media, body);
+            reviewGrid.appendChild(card);
+        });
+    }
+
+    async function setStatus(record, status, button) {
+        if (button) {
+            button.disabled = true;
+            button.textContent = status === STATUS_APPROVED ? "Approving…" : "Rejecting…";
+        }
+
+        try {
+            await window.NamkaranDrive.setGuestStatus(galleryConfig, record.driveId, status);
+            record.status = status;
+            setDriveStatus(
+                status === STATUS_APPROVED
+                    ? `Approved “${record.name}”. It will show in Guest Uploads.`
+                    : `Rejected “${record.name}”.`
+            );
+            await refreshRecords();
+        } catch (error) {
+            console.error(error);
+            setDriveStatus(error.message || "Could not update status on Drive.", true);
+            if (button) {
+                button.disabled = false;
+                button.textContent = status === STATUS_APPROVED ? "Approve" : "Reject";
+            }
+        }
+    }
+
+    adminLoginForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        const value = adminPasswordInput.value.trim();
+        if (value !== adminPassword) {
+            showLoginError("That admin password doesn't seem right.");
+            adminPasswordInput.value = "";
+            adminPasswordInput.focus();
+            return;
+        }
+        showLoginError("");
+        setAdmin(true);
+        showDashboard(true);
+        await refreshRecords();
+    });
+
+    adminLogout.addEventListener("click", () => {
+        setAdmin(false);
+        showDashboard(false);
+        adminPasswordInput.value = "";
+        setDriveStatus("");
+    });
+
+    document.querySelectorAll(".review-tab").forEach((tab) => {
+        tab.addEventListener("click", () => {
+            activeStatus = tab.dataset.status;
+            document.querySelectorAll(".review-tab").forEach((btn) => {
+                const on = btn === tab;
+                btn.classList.toggle("is-active", on);
+                btn.setAttribute("aria-selected", String(on));
+            });
+            renderList();
+        });
+    });
+
+    (async function boot() {
+        try {
+            await loadConfig();
+            if (isAdmin()) {
+                showDashboard(true);
+                await refreshRecords();
+            }
+        } catch (error) {
+            console.error(error);
+            setDriveStatus(error.message || "Could not load review config.", true);
+        }
+    })();
+})();

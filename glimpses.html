@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Glimpses | Ridhaan's Namkaran</title>
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Montserrat:wght@300;400;500;600&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="gallery.css">
+</head>
+<body>
+
+<header class="site-header">
+    <a href="glimpses.html" class="logo-link" aria-label="Ridhaan's Namkaran">
+        <img src="assets/logo.png" alt="Ridhaan's Namkaran" class="logo">
+    </a>
+
+    <nav class="site-nav" aria-label="Gallery">
+        <button type="button" class="nav-link nav-button" id="logoutButton">Logout</button>
+    </nav>
+</header>
+
+<section class="hero" aria-label="Ceremony introduction">
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+        <p class="hero-eyebrow">RIDHAAN'S NAMKARAN</p>
+        <h1 class="hero-title">A little bit of love<br>in every single frame.</h1>
+        <p class="hero-subtitle">
+            Relive the beautiful moments from Ridhaan's Namkaran ceremony.
+        </p>
+    </div>
+</section>
+
+<main>
+    <section class="thanks-section" aria-label="Our heartfelt thanks">
+        <p class="section-eyebrow">WITH LOVE</p>
+        <h2>Our Heartfelt Thanks</h2>
+        <p>
+            Thank you for being part of Ridhaan’s Namkaran and making the day so special.
+            Relive the memories by exploring the photos and video messages we’ve lovingly
+            gathered from the celebration.
+        </p>
+    </section>
+
+    <section class="media-select" aria-label="Choose media type">
+        <button type="button" class="media-card" id="photosCard" data-view="photos" aria-pressed="false">
+            <span class="media-card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.6">
+                    <path d="M4 8.5h2.2l1.3-2h9l1.3 2H20a1.5 1.5 0 0 1 1.5 1.5v8A1.5 1.5 0 0 1 20 19.5H4A1.5 1.5 0 0 1 2.5 18v-8A1.5 1.5 0 0 1 4 8.5Z"/>
+                    <circle cx="12" cy="13.5" r="3.2"/>
+                </svg>
+            </span>
+            <span class="media-card-label">PHOTOS</span>
+        </button>
+
+        <button type="button" class="media-card" id="videosCard" data-view="videos" aria-pressed="false">
+            <span class="media-card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.6">
+                    <rect x="2.5" y="6" width="13" height="12" rx="2"/>
+                    <path d="M15.5 10.5 21 7.5v9l-5.5-3"/>
+                </svg>
+            </span>
+            <span class="media-card-label">VIDEOS</span>
+        </button>
+
+        <button type="button" class="media-card" id="guestCard" data-view="guest" aria-pressed="false">
+            <span class="media-card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.6">
+                    <circle cx="9" cy="8" r="3"/>
+                    <circle cx="16" cy="9" r="2.5"/>
+                    <path d="M3.5 18.5c.8-2.6 2.9-4 5.5-4s4.7 1.4 5.5 4"/>
+                    <path d="M14.5 18.5c.5-1.8 1.8-2.8 3.5-2.8 1.2 0 2.2.5 2.9 1.4"/>
+                </svg>
+            </span>
+            <span class="media-card-label">GUEST UPLOADS</span>
+        </button>
+
+        <button type="button" class="media-card media-card-upload" id="uploadCard" data-view="upload" aria-pressed="false">
+            <span class="media-card-icon" aria-hidden="true">
+                <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.6">
+                    <path d="M12 16V4"/>
+                    <path d="m7 9 5-5 5 5"/>
+                    <path d="M4 16v2.5A1.5 1.5 0 0 0 5.5 20h13a1.5 1.5 0 0 0 1.5-1.5V16"/>
+                </svg>
+            </span>
+            <span class="media-card-label">UPLOAD</span>
+        </button>
+    </section>
+
+    <div class="gallery-loader" id="galleryLoader" hidden role="status" aria-live="polite">
+        <div class="gallery-loader-card">
+            <span class="gallery-loader-ring" aria-hidden="true"></span>
+            <p class="gallery-loader-text" id="galleryLoaderText">Loading moments…</p>
+        </div>
+    </div>
+
+    <section class="media-section" id="photosSection" hidden>
+        <div class="section-heading">
+            <p class="section-eyebrow">GALLERY</p>
+            <h2>Photos</h2>
+            <p class="section-note">Official celebration photos from Ridhaan's Namkaran.</p>
+            <button type="button" class="slideshow-start-btn" id="photosSlideshowBtn">
+                Play slideshow
+            </button>
+        </div>
+        <div class="masonry" id="photoGrid" aria-live="polite"></div>
+        <p class="empty-state" id="photosEmpty" hidden>
+            No photos yet.
+        </p>
+    </section>
+
+    <section class="media-section" id="videosSection" hidden>
+        <div class="section-heading">
+            <p class="section-eyebrow">GALLERY</p>
+            <h2>Videos</h2>
+            <p class="section-note">Official celebration films from the ceremony.</p>
+        </div>
+        <div class="video-grid" id="videoGrid" aria-live="polite"></div>
+        <p class="empty-state" id="videosEmpty" hidden>
+            No videos yet.
+        </p>
+    </section>
+
+    <section class="media-section" id="guestSection" hidden>
+        <div class="section-heading">
+            <p class="section-eyebrow">FROM OUR GUESTS</p>
+            <h2>Uploaded by Guests</h2>
+            <p class="section-note">
+                Moments shared by family and friends — each tagged with the uploader’s name.
+            </p>
+        </div>
+
+        <div class="guest-gallery-group">
+            <div class="guest-group-header">
+                <h3 class="guest-group-title">Photos</h3>
+                <button type="button" class="slideshow-start-btn slideshow-start-btn-compact" id="guestSlideshowBtn">
+                    Play slideshow
+                </button>
+            </div>
+            <div class="masonry" id="guestPhotoGrid" aria-live="polite"></div>
+            <p class="empty-state empty-state-compact" id="guestPhotosEmpty" hidden>
+                No approved guest photos yet.
+            </p>
+        </div>
+
+        <div class="guest-gallery-group">
+            <h3 class="guest-group-title">Videos</h3>
+            <div class="video-grid" id="guestVideoGrid" aria-live="polite"></div>
+            <p class="empty-state empty-state-compact" id="guestVideosEmpty" hidden>
+                No approved guest videos yet.
+            </p>
+        </div>
+    </section>
+
+    <section class="media-section" id="uploadSection" hidden>
+        <div class="section-heading">
+            <p class="section-eyebrow">GUEST MOMENTS</p>
+            <h2>Share what you clicked</h2>
+            <p class="section-note">
+                Please upload only event photos you clicked or videos you recorded at Ridhaan's Namkaran.
+                Your name will appear as a tag on each upload.
+                Photos max 15MB (JPG/PNG/WEBP). Videos max 80MB (MP4/WEBM).
+                Uploads stay <strong>under review</strong> until approved.
+            </p>
+        </div>
+
+        <form class="upload-panel" id="uploadForm">
+            <label class="upload-field" for="guestName">
+                <span>Your name <em class="required-mark">*</em></span>
+                <input
+                    type="text"
+                    id="guestName"
+                    name="guestName"
+                    placeholder="e.g. Aunty Meera"
+                    maxlength="60"
+                    autocomplete="name"
+                    required
+                    aria-required="true">
+            </label>
+
+            <!-- Mobile number + OTP (enable later)
+            <div class="upload-field">
+                <span>Mobile number <em class="required-mark">*</em></span>
+                <div class="mobile-row">
+                    <span class="mobile-prefix" aria-hidden="true">+91</span>
+                    <input
+                        type="tel"
+                        id="guestMobile"
+                        name="guestMobile"
+                        placeholder="10-digit mobile number"
+                        inputmode="numeric"
+                        maxlength="10"
+                        autocomplete="tel-national"
+                        required
+                        aria-required="true"
+                        aria-label="10-digit mobile number">
+                    <button type="button" class="otp-send-btn" id="sendOtpBtn">
+                        Send OTP
+                    </button>
+                </div>
+                <p class="field-hint">We’ll send a one-time SMS code to verify this number.</p>
+            </div>
+
+            <div class="upload-field otp-field" id="otpField" hidden>
+                <span>Enter OTP <em class="required-mark">*</em></span>
+                <div class="otp-row">
+                    <input
+                        type="text"
+                        id="guestOtp"
+                        name="guestOtp"
+                        placeholder="6-digit OTP"
+                        inputmode="numeric"
+                        maxlength="6"
+                        autocomplete="one-time-code"
+                        aria-label="6-digit OTP">
+                    <button type="button" class="otp-verify-btn" id="verifyOtpBtn">
+                        Verify
+                    </button>
+                </div>
+                <p class="otp-verified" id="otpVerified" hidden>✓ Mobile number verified</p>
+            </div>
+
+            <div id="recaptcha-container"></div>
+            -->
+
+            <div class="upload-actions" id="uploadActions">
+                <label class="upload-pick" for="guestFiles">
+                    <input type="file" id="guestFiles" name="guestFiles" accept="image/*,video/*" multiple hidden>
+                    <span class="upload-pick-btn">Choose photos or videos</span>
+                </label>
+            </div>
+
+            <ul class="upload-preview" id="uploadPreview" aria-live="polite"></ul>
+
+            <p class="upload-status" id="uploadStatus" role="status" hidden></p>
+
+            <button type="submit" class="upload-submit" id="uploadSubmit" disabled>
+                Add to guest uploads
+            </button>
+        </form>
+
+        <div class="upload-thanks" id="uploadThanks" hidden role="status">
+            <p class="upload-thanks-eyebrow">THANK YOU</p>
+            <h3>Your moments have been shared</h3>
+            <p>
+                Thank you for sharing. Your upload is under review and will appear in Guest Uploads after approval.
+            </p>
+            <button type="button" class="upload-thanks-btn" id="viewGuestUploadsBtn">
+                View Guest Uploads
+            </button>
+        </div>
+    </section>
+</main>
+
+<!-- Lightbox -->
+<div class="lightbox" id="lightbox" hidden aria-modal="true" role="dialog" aria-label="Photo viewer">
+    <div class="lightbox-backdrop" data-close="true"></div>
+    <div class="lightbox-toolbar">
+        <button type="button" class="lb-btn" id="lbSlideshow" title="Play slideshow" aria-label="Play slideshow" aria-pressed="false">Slideshow</button>
+        <button type="button" class="lb-btn" id="lbDownload" title="Download original" aria-label="Download original">Download</button>
+        <button type="button" class="lb-btn" id="lbFullscreen" title="Full screen" aria-label="Toggle full screen">Full screen</button>
+        <button type="button" class="lb-btn" id="lbClose" title="Close" aria-label="Close">Close</button>
+    </div>
+    <button type="button" class="lb-nav lb-prev" id="lbPrev" aria-label="Previous photo">‹</button>
+    <figure class="lightbox-figure">
+        <img id="lbImage" alt="">
+        <div class="lb-slideshow-progress" id="lbSlideshowProgress" hidden aria-hidden="true">
+            <span class="lb-slideshow-progress-bar" id="lbSlideshowProgressBar"></span>
+        </div>
+        <figcaption id="lbCaption"></figcaption>
+    </figure>
+    <button type="button" class="lb-nav lb-next" id="lbNext" aria-label="Next photo">›</button>
+</div>
+
+<!-- Floating music player -->
+<div class="music-player" id="musicPlayer">
+    <audio id="bgMusic" preload="auto" loop>
+        <source src="music/flute.mp3" type="audio/mpeg">
+    </audio>
+    <button type="button" class="music-toggle" id="musicToggle" aria-label="Open music controls" aria-pressed="false">
+        <span class="music-icon" aria-hidden="true">♪</span>
+    </button>
+    <div class="music-panel" id="musicPanel" hidden>
+        <p class="music-title">Flute</p>
+        <div class="music-controls">
+            <button type="button" id="musicPlay" aria-label="Play">Play</button>
+            <button type="button" id="musicPause" aria-label="Pause">Pause</button>
+            <button type="button" id="musicMute" aria-label="Mute" aria-pressed="false">Mute</button>
+        </div>
+        <label class="volume-label" for="musicVolume">Volume</label>
+        <input type="range" id="musicVolume" min="0" max="1" step="0.05" value="0.6">
+        <p class="music-status" id="musicStatus" hidden></p>
+    </div>
+</div>
+
+<!-- OTP / Firebase (enable later)
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+<script src="otp-config.js"></script>
+<script src="otp-service.js"></script>
+-->
+<script src="drive.js"></script>
+<script src="gallery.js"></script>
+</body>
+</html>

@@ -1,0 +1,366 @@
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+:root {
+    --cream: #F8F3EA;
+    --teal: #075568;
+    --gold: #D8A928;
+}
+
+body {
+    background-color: var(--cream);
+    background-image: url("assets/background/page-bg.jpeg");
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    color: var(--teal);
+    font-family: "Montserrat", sans-serif;
+    min-height: 100vh;
+}
+
+header {
+    height: 90px;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+    padding: 0 60px;
+    background: rgba(248, 243, 234, 0.72);
+    backdrop-filter: blur(4px);
+    position: relative;
+    z-index: 2;
+}
+
+.logo-container img {
+    height: 70px;
+    width: auto;
+    display: block;
+    background: transparent;
+}
+
+nav {
+    display: flex;
+    gap: 60px;
+}
+
+nav a {
+    text-decoration: none;
+    color: var(--teal);
+    font-size: 22px;
+    font-weight: 400;
+    letter-spacing: 0.02em;
+    transition: color 0.25s ease;
+}
+
+nav a:hover,
+nav a:focus-visible {
+    color: var(--gold);
+    outline: none;
+}
+
+.hero {
+    display: flex;
+    min-height: calc(100vh - 90px);
+}
+
+.left-panel {
+    width: 50%;
+    display: flex;
+    align-items: center;
+    padding: 40px 60px 60px 100px;
+    background: rgba(248, 243, 234, 0.55);
+}
+
+.content {
+    max-width: 550px;
+    opacity: 0;
+    animation: fadeUp 0.9s ease forwards;
+    animation-delay: 0.15s;
+}
+
+.date {
+    color: var(--gold);
+    letter-spacing: 4px;
+    margin-bottom: 40px;
+    font-size: 22px;
+    font-weight: 500;
+}
+
+h1 {
+    font-family: "Cormorant Garamond", serif;
+    font-size: clamp(64px, 8vw, 110px);
+    line-height: 0.95;
+    margin-bottom: 40px;
+    color: var(--teal);
+    font-weight: 600;
+}
+
+.subtitle {
+    font-size: 26px;
+    margin-bottom: 15px;
+    color: var(--teal);
+}
+
+.description {
+    line-height: 1.8;
+    margin-bottom: 40px;
+    color: var(--teal);
+    opacity: 0.9;
+}
+
+.private-label {
+    font-size: 13px;
+    letter-spacing: 0.18em;
+    font-weight: 500;
+    color: var(--teal);
+    margin-bottom: 10px;
+}
+
+.login-hint {
+    margin-bottom: 20px;
+    font-size: 15px;
+}
+
+#errorMessage {
+    display: none;
+    margin-top: 20px;
+    color: #9a3b3b;
+    font-size: 15px;
+}
+
+.login-form {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    opacity: 0;
+    animation: fadeUp 0.9s ease forwards;
+    animation-delay: 0.35s;
+}
+
+.login-form label {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+input {
+    width: min(400px, 100%);
+    padding: 18px;
+    border: 1px solid #d9c9ab;
+    background: rgba(255, 255, 255, 0.92);
+    font-size: 18px;
+    border-radius: 8px;
+    color: var(--teal);
+    font-family: inherit;
+}
+
+input:focus-visible {
+    outline: 2px solid var(--teal);
+    outline-offset: 2px;
+}
+
+button {
+    width: min(220px, 100%);
+    padding: 18px;
+    border: none;
+    border-radius: 50px;
+    background: var(--gold);
+    color: white;
+    font-size: 18px;
+    cursor: pointer;
+    transition: transform 0.3s ease, box-shadow 0.3s ease, background 0.3s ease;
+    font-family: inherit;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(216, 169, 40, 0.35);
+    background: #c89a20;
+}
+
+button:focus-visible {
+    outline: 2px solid var(--teal);
+    outline-offset: 3px;
+}
+
+.right-panel {
+    width: 50%;
+    position: relative;
+    overflow: hidden;
+    opacity: 0;
+    animation: fadeSlide 1s ease forwards;
+    animation-delay: 0.2s;
+}
+
+.right-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 28%;
+    z-index: 1;
+    pointer-events: none;
+    background: linear-gradient(
+        to right,
+        rgba(248, 243, 234, 0.95) 0%,
+        rgba(248, 243, 234, 0.45) 45%,
+        transparent 100%
+    );
+}
+
+.right-panel img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: center top;
+    filter: grayscale(100%);
+    display: block;
+    min-height: calc(100vh - 90px);
+}
+
+@keyframes fadeUp {
+    from {
+        opacity: 0;
+        transform: translateY(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+@keyframes fadeSlide {
+    from {
+        opacity: 0;
+        transform: translateX(16px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+@media (max-width: 1100px) {
+    .left-panel {
+        width: 55%;
+        padding-left: 48px;
+        padding-right: 36px;
+    }
+
+    .right-panel {
+        width: 45%;
+    }
+}
+
+@media (max-width: 900px) {
+    body {
+        background-attachment: scroll;
+        overflow-x: hidden;
+    }
+
+    header {
+        padding: 12px max(16px, env(safe-area-inset-right)) 12px max(16px, env(safe-area-inset-left));
+        height: auto;
+        min-height: 64px;
+        gap: 12px;
+    }
+
+    .logo-container img {
+        height: 44px;
+        max-width: min(52vw, 180px);
+        object-fit: contain;
+    }
+
+    .hero {
+        flex-direction: column-reverse;
+    }
+
+    .left-panel,
+    .right-panel {
+        width: 100%;
+    }
+
+    .right-panel {
+        min-height: 38vh;
+    }
+
+    .right-panel img {
+        min-height: 38vh;
+        max-height: 42vh;
+        object-position: center 18%;
+    }
+
+    .right-panel::before {
+        inset: auto 0 0 0;
+        width: 100%;
+        height: 35%;
+        background: linear-gradient(
+            to top,
+            rgba(248, 243, 234, 0.95) 0%,
+            rgba(248, 243, 234, 0.4) 50%,
+            transparent 100%
+        );
+    }
+
+    .left-panel {
+        padding: 28px 20px calc(40px + env(safe-area-inset-bottom));
+        background: rgba(248, 243, 234, 0.82);
+    }
+
+    h1 {
+        font-size: clamp(42px, 12vw, 56px);
+        margin-bottom: 20px;
+    }
+
+    .date {
+        font-size: 14px;
+        letter-spacing: 0.2em;
+        margin-bottom: 20px;
+    }
+
+    .subtitle {
+        font-size: 18px;
+    }
+
+    .description {
+        font-size: 15px;
+        margin-bottom: 28px;
+    }
+
+    input,
+    button {
+        width: 100%;
+        min-height: 52px;
+        font-size: 17px;
+    }
+
+    nav {
+        gap: 14px;
+        flex-shrink: 0;
+    }
+
+    nav a {
+        font-size: 14px;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+    }
+}
+
+@media (max-width: 560px) {
+    .content {
+        max-width: none;
+    }
+
+    .private-label {
+        font-size: 12px;
+    }
+}

@@ -1,0 +1,23 @@
+{
+  "adminPassword": "AdminRidhaan2026",
+  "limits": {
+    "imageMaxMB": 15,
+    "videoMaxMB": 80
+  },
+  "driveRoot": {
+    "folderId": "19kyYw30b3oeF0KuBJZHZMbYH0UzYVc-B",
+    "folderUrl": "https://drive.google.com/drive/folders/19kyYw30b3oeF0KuBJZHZMbYH0UzYVc-B?usp=sharing",
+    "photosFolderName": "photos",
+    "videosFolderName": "videos",
+    "guestUploadsFolderName": "Guest Uploads"
+  },
+  "driveUpload": {
+    "enabled": true,
+    "endpoint": "https://script.google.com/macros/s/AKfycbxQ-1gMDolFThaZtY9KJpsjiHVe5xj1hHwZDoucphG4HKLG1tn-DUm2dfGjY7dsIseddQ/exec",
+    "folderName": "Guest Uploads",
+    "folderId": "",
+    "listAction": "list"
+  },
+  "photos": [],
+  "videos": []
+}

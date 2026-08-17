@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Ridhaan's Namkaran</title>
+
+    <link rel="stylesheet" href="style.css">
+
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;500;600;700&family=Montserrat:wght@300;400;500&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+
+<header>
+    <div class="logo-container">
+        <img src="assets/logo.png" alt="Ridhaan's Namkaran">
+    </div>
+</header>
+
+<section class="hero">
+    <div class="left-panel">
+        <div class="content">
+            <p class="date">16 AUGUST 2026</p>
+
+            <h1>
+                RIDHAAN'S
+                <br>
+                NAMKARAN
+            </h1>
+
+            <p class="subtitle">
+                Welcome to Ridhaan's Namkaran Memories
+            </p>
+
+            <p class="description">
+                A beautiful collection of moments blessed with love and joy.
+            </p>
+
+            <div class="login-form" role="form" aria-label="Private gallery login">
+                <p class="private-label" aria-hidden="true">🔒 PRIVATE MEMORIES</p>
+                <p class="description login-hint">
+                    Enter the password to view the celebration photos and videos.
+                </p>
+
+                <label for="password">Password</label>
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    placeholder="Enter password"
+                    autocomplete="current-password"
+                    required>
+
+                <button type="button" id="loginButton">
+                    View Memories
+                </button>
+            </div>
+
+            <p id="errorMessage" role="alert" hidden>
+                That password doesn't seem right. Please try again.
+            </p>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <img
+            src="assets/baby-photo.jpg"
+            alt="Ridhaan">
+    </div>
+</section>
+
+<script src="app.js"></script>
+</body>
+</html>
