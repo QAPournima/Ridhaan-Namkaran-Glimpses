@@ -12,7 +12,7 @@
   },
   "driveUpload": {
     "enabled": true,
-    "endpoint": "https://script.google.com/macros/s/AKfycbxQ-1gMDolFThaZtY9KJpsjiHVe5xj1hHwZDoucphG4HKLG1tn-DUm2dfGjY7dsIseddQ/exec",
+    "endpoint": "https://script.google.com/macros/s/AKfycby5QnclwoZ5u3_8biPlZs-CRvpneWQzePYDBRkpW4Z5gG3eQT_i7rWPZgNaxbmYK-8rWQ/exec",
     "folderName": "Guest Uploads",
     "folderId": "",
     "listAction": "list"
