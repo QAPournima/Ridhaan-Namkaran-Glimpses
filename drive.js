@@ -353,7 +353,7 @@
         });
     }
 
-    async function setGuestStatus(config, fileId, status) {
+    async function setGuestStatus(config, fileId, status, adminToken) {
         const driveUpload = (config && config.driveUpload) || {};
         if (!driveUpload.endpoint || String(driveUpload.endpoint).includes("PASTE_")) {
             throw new Error("Drive endpoint is not configured");
@@ -362,6 +362,18 @@
             action: "setStatus",
             fileId,
             status,
+            token: adminToken || "",
+        });
+    }
+
+    async function adminLogin(config, password) {
+        const driveUpload = (config && config.driveUpload) || {};
+        if (!driveUpload.endpoint || String(driveUpload.endpoint).includes("PASTE_")) {
+            throw new Error("Drive endpoint is not configured");
+        }
+        return postToDrive(driveUpload.endpoint, {
+            action: "adminLogin",
+            password: password || "",
         });
     }
 
@@ -381,5 +393,6 @@
         postToDrive,
         uploadGuestFile,
         setGuestStatus,
+        adminLogin,
     };
 })(window);

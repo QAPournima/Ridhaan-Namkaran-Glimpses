@@ -2,6 +2,7 @@
     "use strict";
 
     const ADMIN_KEY = "namkaran_admin_authenticated";
+    const ADMIN_TOKEN_KEY = "namkaran_admin_token";
     const STATUS_PENDING = "pending";
     const STATUS_APPROVED = "approved";
     const STATUS_REJECTED = "rejected";
@@ -19,18 +20,29 @@
     const countRejected = document.getElementById("countRejected");
     const driveStatus = document.getElementById("driveStatus");
 
-    let adminPassword = "AdminRidhaan2026";
     let galleryConfig = null;
     let records = [];
     let activeStatus = STATUS_PENDING;
 
     function isAdmin() {
-        return sessionStorage.getItem(ADMIN_KEY) === "true";
+        return (
+            sessionStorage.getItem(ADMIN_KEY) === "true" &&
+            Boolean(sessionStorage.getItem(ADMIN_TOKEN_KEY))
+        );
     }
 
-    function setAdmin(value) {
-        if (value) sessionStorage.setItem(ADMIN_KEY, "true");
-        else sessionStorage.removeItem(ADMIN_KEY);
+    function getAdminToken() {
+        return sessionStorage.getItem(ADMIN_TOKEN_KEY) || "";
+    }
+
+    function setAdmin(value, token) {
+        if (value && token) {
+            sessionStorage.setItem(ADMIN_KEY, "true");
+            sessionStorage.setItem(ADMIN_TOKEN_KEY, token);
+        } else {
+            sessionStorage.removeItem(ADMIN_KEY);
+            sessionStorage.removeItem(ADMIN_TOKEN_KEY);
+        }
     }
 
     function showLoginError(message) {
@@ -71,9 +83,6 @@
             throw new Error("drive.js failed to load");
         }
         galleryConfig = await window.NamkaranDrive.loadGalleryConfig();
-        if (galleryConfig.adminPassword) {
-            adminPassword = galleryConfig.adminPassword;
-        }
         const endpoint = galleryConfig.driveUpload && galleryConfig.driveUpload.endpoint;
         if (!endpoint || String(endpoint).includes("PASTE_") || String(endpoint).includes("/macros/library/")) {
             throw new Error(
@@ -231,7 +240,12 @@
         }
 
         try {
-            await window.NamkaranDrive.setGuestStatus(galleryConfig, record.driveId, status);
+            await window.NamkaranDrive.setGuestStatus(
+                galleryConfig,
+                record.driveId,
+                status,
+                getAdminToken()
+            );
             record.status = status;
             setDriveStatus(
                 status === STATUS_APPROVED
@@ -241,7 +255,13 @@
             await refreshRecords();
         } catch (error) {
             console.error(error);
-            setDriveStatus(error.message || "Could not update status on Drive.", true);
+            const message = error.message || "Could not update status on Drive.";
+            setDriveStatus(message, true);
+            if (/admin|login|session|expired/i.test(message)) {
+                setAdmin(false);
+                showDashboard(false);
+                showLoginError("Admin session expired. Please log in again.");
+            }
             if (button) {
                 button.disabled = false;
                 button.textContent = status === STATUS_APPROVED ? "Approve" : "Reject";
@@ -252,16 +272,39 @@
     adminLoginForm.addEventListener("submit", async (event) => {
         event.preventDefault();
         const value = adminPasswordInput.value.trim();
-        if (value !== adminPassword) {
-            showLoginError("That admin password doesn't seem right.");
-            adminPasswordInput.value = "";
-            adminPasswordInput.focus();
+        if (!value) {
+            showLoginError("Enter the admin password.");
             return;
         }
+
+        const submitBtn = adminLoginForm.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.textContent = "Checking…";
+        }
         showLoginError("");
-        setAdmin(true);
-        showDashboard(true);
-        await refreshRecords();
+
+        try {
+            const result = await window.NamkaranDrive.adminLogin(galleryConfig, value);
+            if (!result || !result.ok || !result.token) {
+                throw new Error((result && result.message) || "Admin login failed.");
+            }
+            setAdmin(true, result.token);
+            adminPasswordInput.value = "";
+            showDashboard(true);
+            await refreshRecords();
+        } catch (error) {
+            console.error(error);
+            setAdmin(false);
+            showLoginError(error.message || "That admin password doesn't seem right.");
+            adminPasswordInput.value = "";
+            adminPasswordInput.focus();
+        } finally {
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.textContent = "Enter review";
+            }
+        }
     });
 
     adminLogout.addEventListener("click", () => {

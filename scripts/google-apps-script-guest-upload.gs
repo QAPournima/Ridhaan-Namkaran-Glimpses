@@ -22,16 +22,20 @@
  * ENDPOINTS
  *   GET  ?action=list        → photos + videos + guest uploads (all statuses)
  *   GET  ?action=listGuests  → guest uploads only
+ *   POST { action: "adminLogin", password }   → verify admin password (server-side only)
  *   POST { fileName, base64, … }              → save guest file (default status: pending)
- *   POST { action: "setStatus", fileId, status } → approve / reject a guest file
+ *   POST { action: "setStatus", fileId, status, token } → approve / reject a guest file
  */
 
 const ROOT_FOLDER_ID = "19kyYw30b3oeF0KuBJZHZMbYH0UzYVc-B";
 const PHOTOS_FOLDER_NAME = "photos";
 const VIDEOS_FOLDER_NAME = "videos";
 const GUEST_FOLDER_NAME = "Guest Uploads";
+// Keep this ONLY in Apps Script — never put it in gallery.json or the website files
+const ADMIN_PASSWORD = "AdminRidhaan2026";
 // Bump this whenever you redeploy so the website can detect stale deployments
-const BRIDGE_VERSION = "2026-08-17-guests-v2";
+const BRIDGE_VERSION = "2026-08-17-admin-auth-v3";
+const ADMIN_TOKEN_TTL_SECONDS = 6 * 60 * 60; // 6 hours
 
 function doGet(e) {
   try {
@@ -54,7 +58,7 @@ function doGet(e) {
       version: BRIDGE_VERSION,
       message: "Ridhaan Namkaran Drive bridge is live.",
       rootFolderId: ROOT_FOLDER_ID,
-      features: ["list", "listGuests", "setStatus"],
+      features: ["list", "listGuests", "setStatus", "adminLogin"],
     });
   } catch (err) {
     return json_({
@@ -69,7 +73,12 @@ function doPost(e) {
     const raw = (e && e.postData && e.postData.contents) || "";
     const data = JSON.parse(raw);
 
+    if (data && data.action === "adminLogin") {
+      return json_(adminLogin_(data.password));
+    }
+
     if (data && data.action === "setStatus") {
+      requireAdminToken_(data.token);
       return json_(setGuestStatus_(data.fileId, data.status));
     }
 
@@ -171,6 +180,41 @@ function listGuestFiles_() {
   });
 
   return out;
+}
+
+function adminLogin_(password) {
+  if (!ADMIN_PASSWORD) {
+    return { ok: false, message: "Admin password is not configured in Apps Script." };
+  }
+  if (String(password || "") !== String(ADMIN_PASSWORD)) {
+    return { ok: false, message: "That admin password doesn't seem right." };
+  }
+
+  const token = Utilities.getUuid() + "-" + Utilities.getUuid();
+  CacheService.getScriptCache().put(adminCacheKey_(token), "1", ADMIN_TOKEN_TTL_SECONDS);
+
+  return {
+    ok: true,
+    token: token,
+    expiresInSeconds: ADMIN_TOKEN_TTL_SECONDS,
+    version: BRIDGE_VERSION,
+  };
+}
+
+function requireAdminToken_(token) {
+  if (!token) {
+    throw new Error("Admin login required.");
+  }
+  const cached = CacheService.getScriptCache().get(adminCacheKey_(token));
+  if (!cached) {
+    throw new Error("Admin session expired. Please log in again.");
+  }
+  // Refresh TTL on activity
+  CacheService.getScriptCache().put(adminCacheKey_(token), "1", ADMIN_TOKEN_TTL_SECONDS);
+}
+
+function adminCacheKey_(token) {
+  return "admin_token_" + String(token || "");
 }
 
 function setGuestStatus_(fileId, status) {
