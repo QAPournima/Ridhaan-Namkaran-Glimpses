@@ -945,6 +945,11 @@ button {
     align-items: center;
     justify-content: center;
     padding: 24px;
+    animation: lightboxEnter 0.45s ease;
+}
+
+.lightbox.is-slideshow-mode .lightbox-backdrop {
+    background: radial-gradient(ellipse at center, rgba(7, 85, 104, 0.35) 0%, rgba(4, 30, 36, 0.92) 70%);
 }
 
 .lightbox[hidden] {
@@ -955,6 +960,7 @@ button {
     position: absolute;
     inset: 0;
     background: rgba(4, 30, 36, 0.88);
+    transition: background 0.5s ease;
 }
 
 .lightbox-toolbar {
@@ -1040,12 +1046,118 @@ button {
     object-fit: contain;
     border-radius: 8px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
+    will-change: opacity, transform;
+}
+
+.lightbox-figure img.is-leaving-next {
+    animation: slideOutLeft 0.42s ease forwards;
+}
+
+.lightbox-figure img.is-leaving-prev {
+    animation: slideOutRight 0.42s ease forwards;
+}
+
+.lightbox-figure img.is-entering-next {
+    animation: slideInRight 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.lightbox-figure img.is-entering-prev {
+    animation: slideInLeft 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+.lightbox-figure img.is-entering-fade {
+    animation: slideFadeIn 0.55s ease forwards;
+}
+
+.lightbox-figure img.is-soft-zoom {
+    animation: kenBurns var(--slideshow-ms, 4500ms) ease-out forwards;
 }
 
 #lbCaption {
     color: rgba(255, 255, 255, 0.85);
     margin-top: 12px;
     font-size: 14px;
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+#lbCaption.is-swapping {
+    opacity: 0;
+    transform: translateY(8px);
+}
+
+@keyframes lightboxEnter {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutLeft {
+    to {
+        opacity: 0;
+        transform: translateX(-36px) scale(0.97);
+    }
+}
+
+@keyframes slideOutRight {
+    to {
+        opacity: 0;
+        transform: translateX(36px) scale(0.97);
+    }
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(42px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+
+@keyframes slideInLeft {
+    from {
+        opacity: 0;
+        transform: translateX(-42px) scale(0.96);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0) scale(1);
+    }
+}
+
+@keyframes slideFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
+}
+
+@keyframes kenBurns {
+    from {
+        transform: scale(1);
+    }
+    to {
+        transform: scale(1.035);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .lightbox,
+    .lightbox-figure img,
+    .lightbox.is-slideshow-mode .lightbox-figure img,
+    #lbCaption {
+        animation: none !important;
+        transition: none !important;
+    }
 }
 
 .lb-nav {

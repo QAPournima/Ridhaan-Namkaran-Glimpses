@@ -104,7 +104,9 @@
     let dbPromise = null;
     let slideshowTimer = null;
     let slideshowActive = false;
-    const SLIDESHOW_MS = 4000;
+    let slideshowAnimating = false;
+    const SLIDESHOW_MS = 4500;
+    const SLIDE_TRANSITION_MS = 420;
 
     /* ---------- Auth ---------- */
 
@@ -1088,6 +1090,7 @@
         clearSlideshowTimer();
         stopSlideshowProgress();
         syncSlideshowButton();
+        if (lightbox) lightbox.classList.remove("is-slideshow-mode");
     }
 
     function scheduleSlideshowAdvance() {
@@ -1105,7 +1108,15 @@
             return;
         }
         slideshowActive = true;
+        if (lightbox) lightbox.classList.add("is-slideshow-mode");
         syncSlideshowButton();
+        const item = lightboxItems[currentIndex];
+        if (item) {
+            clearSlideClasses();
+            lbImage.style.setProperty("--slideshow-ms", `${SLIDESHOW_MS}ms`);
+            lbImage.classList.add("is-soft-zoom");
+            updateCaption(item);
+        }
         scheduleSlideshowAdvance();
     }
 
@@ -1120,12 +1131,42 @@
         if (items.length > 1) startSlideshow();
     }
 
+    function clearSlideClasses() {
+        if (!lbImage) return;
+        lbImage.classList.remove(
+            "is-leaving-next",
+            "is-leaving-prev",
+            "is-entering-next",
+            "is-entering-prev",
+            "is-entering-fade",
+            "is-soft-zoom"
+        );
+    }
+
+    function applyImageSource(item) {
+        if (item.driveId && window.NamkaranDrive && window.NamkaranDrive.bindDriveImage) {
+            window.NamkaranDrive.bindDriveImage(lbImage, item.driveId, item.src, "w2000");
+        } else {
+            lbImage.referrerPolicy = "no-referrer";
+            lbImage.onerror = null;
+            lbImage.src = item.src;
+        }
+    }
+
+    function updateCaption(item) {
+        const uploader = item.guestName ? ` · ${uploaderLabel(item)}` : "";
+        const mobile = item.guestMobile ? ` · ${item.guestMobile}` : "";
+        const slideNote = slideshowActive ? " · Slideshow" : "";
+        lbCaption.textContent =
+            `${currentIndex + 1} / ${lightboxItems.length} · ${mediaLabel(item)}${uploader}${mobile}${slideNote}`;
+    }
+
     function openLightbox(items, index) {
         if (!items.length) return;
         stopSlideshow();
         lightboxItems = items;
         currentIndex = index;
-        updateLightbox();
+        updateLightbox({ animate: false });
         lightbox.hidden = false;
         document.body.style.overflow = "hidden";
         lbClose.focus();
@@ -1135,41 +1176,81 @@
         stopSlideshow();
         lightbox.hidden = true;
         document.body.style.overflow = "";
+        clearSlideClasses();
         if (document.fullscreenElement) {
             document.exitFullscreen().catch(() => {});
         }
     }
 
-    function updateLightbox() {
+    async function updateLightbox(options = {}) {
         const item = lightboxItems[currentIndex];
-        lbImage.alt = mediaLabel(item);
-        if (item.driveId && window.NamkaranDrive && window.NamkaranDrive.bindDriveImage) {
-            window.NamkaranDrive.bindDriveImage(lbImage, item.driveId, item.src, "w2000");
-        } else {
-            lbImage.referrerPolicy = "no-referrer";
-            lbImage.onerror = null;
-            lbImage.src = item.src;
+        if (!item) return;
+
+        const animate = options.animate !== false;
+        const direction = options.direction || "fade";
+
+        if (!animate) {
+            clearSlideClasses();
+            lbImage.alt = mediaLabel(item);
+            applyImageSource(item);
+            updateCaption(item);
+            lbCaption.classList.remove("is-swapping");
+            if (slideshowActive) {
+                lbImage.style.setProperty("--slideshow-ms", `${SLIDESHOW_MS}ms`);
+                lbImage.classList.add("is-soft-zoom");
+            }
+            return;
         }
-        const uploader = item.guestName ? ` · ${uploaderLabel(item)}` : "";
-        const mobile = item.guestMobile ? ` · ${item.guestMobile}` : "";
-        const slideNote = slideshowActive ? " · Slideshow" : "";
-        lbCaption.textContent =
-            `${currentIndex + 1} / ${lightboxItems.length} · ${mediaLabel(item)}${uploader}${mobile}${slideNote}`;
+
+        if (slideshowAnimating) return;
+        slideshowAnimating = true;
+        lbCaption.classList.add("is-swapping");
+        clearSlideClasses();
+
+        const leaveClass = direction === "prev" ? "is-leaving-prev" : "is-leaving-next";
+        const enterClass =
+            direction === "prev"
+                ? "is-entering-prev"
+                : direction === "next"
+                  ? "is-entering-next"
+                  : "is-entering-fade";
+
+        lbImage.classList.add(leaveClass);
+        await new Promise((resolve) => setTimeout(resolve, SLIDE_TRANSITION_MS));
+
+        clearSlideClasses();
+        lbImage.alt = mediaLabel(item);
+        applyImageSource(item);
+        updateCaption(item);
+        lbImage.classList.add(enterClass);
+        lbCaption.classList.remove("is-swapping");
+
+        await new Promise((resolve) => setTimeout(resolve, 520));
+        clearSlideClasses();
+        if (slideshowActive) {
+            lbImage.style.setProperty("--slideshow-ms", `${SLIDESHOW_MS}ms`);
+            lbImage.classList.add("is-soft-zoom");
+        }
+        slideshowAnimating = false;
     }
 
     function showPrev() {
+        if (slideshowAnimating) return;
         currentIndex = (currentIndex - 1 + lightboxItems.length) % lightboxItems.length;
-        updateLightbox();
-        if (slideshowActive) scheduleSlideshowAdvance();
+        updateLightbox({ animate: true, direction: "prev" }).then(() => {
+            if (slideshowActive) scheduleSlideshowAdvance();
+        });
     }
 
     function showNext(options = {}) {
+        if (slideshowAnimating) return;
         currentIndex = (currentIndex + 1) % lightboxItems.length;
-        updateLightbox();
-        if (slideshowActive) scheduleSlideshowAdvance();
-        else if (!options.fromSlideshow) {
-            /* manual next while paused — no timer */
-        }
+        updateLightbox({
+            animate: true,
+            direction: "next",
+        }).then(() => {
+            if (slideshowActive) scheduleSlideshowAdvance();
+        });
     }
 
     async function toggleFullscreen() {
