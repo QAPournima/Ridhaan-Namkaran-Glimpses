@@ -27,6 +27,7 @@
  *   GET  ?action=listGuests  → guest uploads only
  *   POST { action: "adminLogin", password }   → verify admin password (server-side only)
  *   GET  ?action=downloadStats → photo download counts for admin
+ *   GET  ?action=downloadImage&id=FILE_ID → photo bytes for Save on phones
  *   POST { action: "recordDownload", driveId, title } → increment a photo’s download count
  *   POST { fileName, base64, … }              → save guest file (default status: pending)
  *   POST { action: "setStatus", fileId, status, token } → approve / reject a guest file
@@ -38,7 +39,7 @@ const VIDEOS_FOLDER_NAME = "videos";
 const GUEST_FOLDER_NAME = "Guest Uploads";
 const DOWNLOAD_STATS_FILE = "_namkaran-download-stats.json";
 // Bump this whenever you redeploy so the website can detect stale deployments
-const BRIDGE_VERSION = "2026-08-18-downloads-v5";
+const BRIDGE_VERSION = "2026-08-18-downloads-v6";
 const ADMIN_TOKEN_TTL_SECONDS = 6 * 60 * 60; // 6 hours
 
 function doGet(e) {
@@ -61,12 +62,16 @@ function doGet(e) {
       return json_(listDownloadStats_());
     }
 
+    if (action === "downloadImage") {
+      return json_(downloadImage_(e.parameter && e.parameter.id));
+    }
+
     return json_({
       ok: true,
       version: BRIDGE_VERSION,
       message: "Ridhaan Namkaran Drive bridge is live.",
       rootFolderId: ROOT_FOLDER_ID,
-      features: ["list", "listGuests", "setStatus", "adminLogin", "recordDownload", "downloadStats"],
+      features: ["list", "listGuests", "setStatus", "adminLogin", "recordDownload", "downloadStats", "downloadImage"],
     });
   } catch (err) {
     return json_({
@@ -220,6 +225,56 @@ function readDownloadStats_() {
 function writeDownloadStats_(stats) {
   const file = getDownloadStatsFile_(true);
   file.setContent(JSON.stringify(stats));
+}
+
+function fetchPublicThumb_(id) {
+  const url =
+    "https://drive.google.com/thumbnail?id=" +
+    encodeURIComponent(id) +
+    "&sz=w2000";
+  const resp = UrlFetchApp.fetch(url, {
+    muteHttpExceptions: true,
+    followRedirects: true,
+  });
+  if (resp.getResponseCode() !== 200) return null;
+  return resp.getBlob();
+}
+
+function downloadImage_(id) {
+  const fileId = String(id || "").trim();
+  if (!fileId) {
+    return { ok: false, message: "Missing photo id." };
+  }
+
+  let blob = null;
+  let fileName = "photo.jpg";
+  try {
+    const file = DriveApp.getFileById(fileId);
+    fileName = file.getName() || fileName;
+    const mime = String(file.getMimeType() || "");
+    if (mime.indexOf("video/") === 0) {
+      return { ok: false, message: "Use the video download link." };
+    }
+    if (Number(file.getSize() || 0) > 8 * 1024 * 1024) {
+      blob = fetchPublicThumb_(fileId) || file.getBlob();
+    } else {
+      blob = file.getBlob();
+    }
+  } catch (err) {
+    blob = fetchPublicThumb_(fileId);
+  }
+
+  if (!blob) {
+    return { ok: false, message: "Could not read photo." };
+  }
+
+  return {
+    ok: true,
+    version: BRIDGE_VERSION,
+    fileName: fileName,
+    mimeType: blob.getContentType() || "image/jpeg",
+    base64: Utilities.base64Encode(blob.getBytes()),
+  };
 }
 
 function recordDownload_(data) {

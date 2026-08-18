@@ -1151,6 +1151,8 @@
             lbImage.onerror = null;
             lbImage.src = item.src;
         }
+        syncDownloadLink(item);
+        prefetchSaveBlob(item);
     }
 
     function updateCaption(item) {
@@ -1177,6 +1179,7 @@
         lightbox.hidden = true;
         document.body.style.overflow = "";
         clearSlideClasses();
+        revokeDownloadObjectUrl();
         if (document.fullscreenElement) {
             document.exitFullscreen().catch(() => {});
         }
@@ -1272,6 +1275,41 @@
         return `${base.replace(/\.[^.]+$/, "")}.jpg`;
     }
 
+    let downloadObjectUrl = "";
+
+    function revokeDownloadObjectUrl() {
+        if (downloadObjectUrl) {
+            URL.revokeObjectURL(downloadObjectUrl);
+            downloadObjectUrl = "";
+        }
+    }
+
+    function nativeDownloadHref(item) {
+        if (!item) return "#";
+        if (item.driveId && window.NamkaranDrive) {
+            return window.NamkaranDrive.driveDownloadUrl(item.driveId);
+        }
+        return item.download || item.src || "#";
+    }
+
+    function syncDownloadLink(item) {
+        if (!lbDownload || !item) return;
+        const filename = safeDownloadName(item);
+        lbDownload.setAttribute("download", filename);
+        lbDownload.setAttribute("target", "_blank");
+        lbDownload.setAttribute("rel", "noopener noreferrer");
+
+        const blob = item.blob || item.saveBlob;
+        if (blob instanceof Blob) {
+            revokeDownloadObjectUrl();
+            downloadObjectUrl = URL.createObjectURL(blob);
+            lbDownload.href = downloadObjectUrl;
+            return;
+        }
+
+        lbDownload.href = nativeDownloadHref(item);
+    }
+
     function triggerBlobDownload(blob, filename) {
         const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
@@ -1284,28 +1322,46 @@
         setTimeout(() => URL.revokeObjectURL(url), 2000);
     }
 
-    function canvasToBlob(img) {
-        return new Promise((resolve, reject) => {
-            const width = img.naturalWidth || img.width;
-            const height = img.naturalHeight || img.height;
-            if (!width || !height) {
-                reject(new Error("Image is not ready"));
-                return;
-            }
-            const canvas = document.createElement("canvas");
-            canvas.width = width;
-            canvas.height = height;
-            const ctx = canvas.getContext("2d");
-            ctx.drawImage(img, 0, 0);
-            canvas.toBlob(
-                (blob) => {
-                    if (!blob) reject(new Error("Could not create file"));
-                    else resolve(blob);
-                },
-                "image/jpeg",
-                0.92
-            );
-        });
+    function dataUrlToFile(dataUrl, filename) {
+        const parts = String(dataUrl).split(",");
+        const header = parts[0] || "";
+        const mimeMatch = header.match(/:(.*?);/);
+        const type = (mimeMatch && mimeMatch[1]) || "image/jpeg";
+        const binary = atob(parts[1] || "");
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return new File([bytes], filename, { type });
+    }
+
+    function fileFromBlob(blob, filename) {
+        const type = blob.type && blob.type !== "application/octet-stream"
+            ? blob.type
+            : "image/jpeg";
+        try {
+            return new File([blob], filename, { type });
+        } catch (_) {
+            return blob;
+        }
+    }
+
+    function imageToFileSync(img, filename) {
+        const width = img && (img.naturalWidth || img.width);
+        const height = img && (img.naturalHeight || img.height);
+        if (!width || !height) {
+            throw new Error("Image is not ready");
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0);
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.92);
+        if (!dataUrl || dataUrl.length < 80) {
+            throw new Error("Could not create file");
+        }
+        return dataUrlToFile(dataUrl, filename);
     }
 
     async function fetchAsBlob(url) {
@@ -1319,6 +1375,97 @@
             throw new Error("Unexpected download");
         }
         return blob;
+    }
+
+    function prefetchSaveBlob(item) {
+        if (!item || item.blob || item.saveBlob || item.savePrefetch) return;
+        item.savePrefetch = (async () => {
+            try {
+                if (lbImage && lbImage.complete && lbImage.naturalWidth) {
+                    try {
+                        item.saveBlob = imageToFileSync(lbImage, safeDownloadName(item));
+                        if (lightboxItems[currentIndex] === item) syncDownloadLink(item);
+                        return;
+                    } catch (_) {
+                        /* Drive photos are usually blocked here by the browser */
+                    }
+                }
+
+                const urls = [
+                    item.src,
+                    item.driveId && window.NamkaranDrive
+                        ? window.NamkaranDrive.driveImageUrl(item.driveId, "w2000")
+                        : "",
+                ].filter((url) => url && !String(url).startsWith("blob:"));
+
+                for (const url of urls) {
+                    try {
+                        item.saveBlob = await fetchAsBlob(url);
+                        if (lightboxItems[currentIndex] === item) syncDownloadLink(item);
+                        return;
+                    } catch (_) {
+                        /* try next source */
+                    }
+                }
+
+                if (item.driveId && window.NamkaranDrive && window.NamkaranDrive.fetchDriveImageBlob) {
+                    const config = await window.NamkaranDrive.loadGalleryConfig();
+                    item.saveBlob = await window.NamkaranDrive.fetchDriveImageBlob(
+                        config,
+                        item.driveId
+                    );
+                    if (lightboxItems[currentIndex] === item) syncDownloadLink(item);
+                }
+            } catch (error) {
+                console.warn("Could not prepare photo for saving", error);
+            }
+        })();
+    }
+
+    function canUseShareSheet(file) {
+        try {
+            return Boolean(
+                navigator.canShare &&
+                    navigator.canShare({ files: [file] })
+            );
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function savePhotoFile(file, item) {
+        const filename = file.name || safeDownloadName(item);
+        if (canUseShareSheet(file)) {
+            navigator
+                .share({ files: [file], title: item.name || "Photo" })
+                .then(() => {
+                    recordGalleryDownload(item);
+                })
+                .catch((error) => {
+                    if (error && error.name === "AbortError") return;
+                    recordGalleryDownload(item);
+                });
+            return true;
+        }
+        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent || "")) {
+            return false;
+        }
+        triggerBlobDownload(file, filename);
+        recordGalleryDownload(item);
+        return true;
+    }
+
+    function trySavePhotoNow(item) {
+        const filename = safeDownloadName(item);
+        const blob = item.blob || item.saveBlob;
+        if (blob instanceof Blob) {
+            return savePhotoFile(fileFromBlob(blob, filename), item);
+        }
+        try {
+            return savePhotoFile(imageToFileSync(lbImage, filename), item);
+        } catch (_) {
+            return false;
+        }
     }
 
     async function recordGalleryDownload(item) {
@@ -1335,73 +1482,6 @@
         } catch (error) {
             window.NamkaranDrive.bumpLocalDownload(payload);
             console.warn("Could not record download count remotely", error);
-        }
-    }
-
-    async function downloadCurrent() {
-        const item = lightboxItems[currentIndex];
-        if (!item) return;
-
-        const filename = safeDownloadName(item);
-        const originalLabel = lbDownload ? lbDownload.textContent : "";
-        if (lbDownload) {
-            lbDownload.disabled = true;
-            lbDownload.textContent = "Downloading…";
-        }
-
-        let downloaded = false;
-
-        try {
-            if (item.blob instanceof Blob) {
-                triggerBlobDownload(item.blob, filename);
-                downloaded = true;
-                return;
-            }
-
-            try {
-                triggerBlobDownload(await canvasToBlob(lbImage), filename);
-                downloaded = true;
-                return;
-            } catch (_) {
-                /* cross-origin image — try fetch next */
-            }
-
-            const candidates = [
-                lbImage && (lbImage.currentSrc || lbImage.src),
-                item.src,
-                item.driveId && window.NamkaranDrive
-                    ? window.NamkaranDrive.driveImageUrl(item.driveId, "w2000")
-                    : "",
-            ].filter((url) => url && !String(url).startsWith("data:"));
-
-            for (const url of candidates) {
-                try {
-                    triggerBlobDownload(await fetchAsBlob(url), filename);
-                    downloaded = true;
-                    return;
-                } catch (_) {
-                    /* try next source */
-                }
-            }
-
-            const fallback =
-                (item.driveId && window.NamkaranDrive
-                    ? window.NamkaranDrive.driveDownloadUrl(item.driveId)
-                    : "") ||
-                item.download ||
-                item.src;
-            if (fallback && /^https?:/i.test(fallback)) {
-                window.open(fallback, "_blank", "noopener,noreferrer");
-                downloaded = true;
-            }
-        } finally {
-            if (downloaded) {
-                recordGalleryDownload(item);
-            }
-            if (lbDownload) {
-                lbDownload.disabled = false;
-                lbDownload.textContent = originalLabel || "Download";
-            }
         }
     }
 
@@ -1542,10 +1622,30 @@
             });
         }
         lbDownload.addEventListener("click", (event) => {
-            event.preventDefault();
+            const item = lightboxItems[currentIndex];
+            if (!item) {
+                event.preventDefault();
+                return;
+            }
             event.stopPropagation();
-            downloadCurrent();
+            if (trySavePhotoNow(item)) {
+                event.preventDefault();
+                return;
+            }
+            recordGalleryDownload(item);
         });
+        if (lbImage) {
+            lbImage.addEventListener("load", () => {
+                const item = lightboxItems[currentIndex];
+                if (!item || item.blob || item.saveBlob) return;
+                try {
+                    item.saveBlob = imageToFileSync(lbImage, safeDownloadName(item));
+                    syncDownloadLink(item);
+                } catch (_) {
+                    prefetchSaveBlob(item);
+                }
+            });
+        }
 
         lightbox.addEventListener("click", (event) => {
             if (event.target.dataset.close === "true") {

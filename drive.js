@@ -491,6 +491,33 @@
         return mergeDownloadStats(remote, listLocalDownloadStats());
     }
 
+    function base64ToBlob(base64, mimeType) {
+        const binary = atob(base64);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i += 1) {
+            bytes[i] = binary.charCodeAt(i);
+        }
+        return new Blob([bytes], { type: mimeType || "image/jpeg" });
+    }
+
+    async function fetchDriveImageBlob(config, driveId) {
+        const endpoint = config && config.driveUpload && config.driveUpload.endpoint;
+        const id = String(driveId || "").trim();
+        if (!endpoint || String(endpoint).includes("PASTE_") || !id) {
+            throw new Error("Missing download source");
+        }
+        const listUrl = endpoint.includes("?")
+            ? `${endpoint}&action=downloadImage&id=${encodeURIComponent(id)}`
+            : `${endpoint}?action=downloadImage&id=${encodeURIComponent(id)}`;
+        const response = await fetch(listUrl, { cache: "no-store" });
+        const text = await response.text();
+        const data = JSON.parse(text);
+        if (!data || !data.ok || !data.base64) {
+            throw new Error((data && data.message) || "Could not fetch photo");
+        }
+        return base64ToBlob(data.base64, data.mimeType);
+    }
+
     global.NamkaranDrive = {
         extractDriveId,
         driveImageUrl,
@@ -513,5 +540,6 @@
         bumpLocalDownload,
         listLocalDownloadStats,
         mergeDownloadStats,
+        fetchDriveImageBlob,
     };
 })(window);

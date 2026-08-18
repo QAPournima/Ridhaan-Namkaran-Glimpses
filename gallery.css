@@ -985,6 +985,15 @@ button {
     transition: background 0.25s ease;
 }
 
+a.lb-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    cursor: pointer;
+    box-sizing: border-box;
+}
+
 .lb-btn:hover,
 .lb-btn:focus-visible {
     background: var(--gold);
