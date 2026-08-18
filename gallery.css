@@ -1056,6 +1056,9 @@ a.lb-btn {
     border-radius: 8px;
     box-shadow: 0 20px 60px rgba(0, 0, 0, 0.35);
     will-change: opacity, transform;
+    -webkit-touch-callout: default;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
 .lightbox-figure img.is-leaving-next {

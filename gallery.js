@@ -1504,6 +1504,60 @@
             });
     }
 
+    const mobileSaveCountedAt = new Map();
+
+    function recordMobilePhotoSave() {
+        if (!isPhoneGallery() || lightbox.hidden) return;
+        const item = lightboxItems[currentIndex];
+        if (!item) return;
+        const id = String(item.driveId || item.id || item.src || "");
+        if (!id) return;
+        const now = Date.now();
+        const last = mobileSaveCountedAt.get(id) || 0;
+        if (now - last < 5000) return;
+        mobileSaveCountedAt.set(id, now);
+        recordGalleryDownload(item);
+    }
+
+    function bindMobileSaveCount(img) {
+        if (!img) return;
+        let holdTimer = 0;
+
+        const clearHold = () => {
+            if (holdTimer) {
+                window.clearTimeout(holdTimer);
+                holdTimer = 0;
+            }
+        };
+
+        img.addEventListener("contextmenu", () => {
+            recordMobilePhotoSave();
+        });
+
+        img.addEventListener(
+            "touchstart",
+            () => {
+                if (!isPhoneGallery()) return;
+                clearHold();
+                holdTimer = window.setTimeout(() => {
+                    holdTimer = 0;
+                    recordMobilePhotoSave();
+                }, 550);
+            },
+            { passive: true }
+        );
+
+        img.addEventListener("touchend", clearHold, { passive: true });
+        img.addEventListener("touchcancel", clearHold, { passive: true });
+        img.addEventListener(
+            "touchmove",
+            () => {
+                clearHold();
+            },
+            { passive: true }
+        );
+    }
+
     /* ---------- Music ---------- */
 
     function setMusicPlayingUi(isPlaying) {
@@ -1648,6 +1702,7 @@
             savePhotoOnDesktop(item);
         });
         if (lbImage) {
+            bindMobileSaveCount(lbImage);
             lbImage.addEventListener("load", () => {
                 const item = lightboxItems[currentIndex];
                 if (!item || isPhoneGallery() || item.blob || item.saveBlob) return;
