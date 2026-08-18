@@ -62,6 +62,7 @@
     const lbNext = document.getElementById("lbNext");
     const lbClose = document.getElementById("lbClose");
     const lbDownload = document.getElementById("lbDownload");
+    const lbSaveHint = document.getElementById("lbSaveHint");
     const lbFullscreen = document.getElementById("lbFullscreen");
     const lbSlideshow = document.getElementById("lbSlideshow");
     const lbSlideshowProgress = document.getElementById("lbSlideshowProgress");
@@ -1151,7 +1152,6 @@
             lbImage.onerror = null;
             lbImage.src = item.src;
         }
-        syncDownloadLink(item);
         prefetchSaveBlob(item);
     }
 
@@ -1179,7 +1179,7 @@
         lightbox.hidden = true;
         document.body.style.overflow = "";
         clearSlideClasses();
-        revokeDownloadObjectUrl();
+        showSaveHint("");
         if (document.fullscreenElement) {
             document.exitFullscreen().catch(() => {});
         }
@@ -1275,39 +1275,11 @@
         return `${base.replace(/\.[^.]+$/, "")}.jpg`;
     }
 
-    let downloadObjectUrl = "";
-
-    function revokeDownloadObjectUrl() {
-        if (downloadObjectUrl) {
-            URL.revokeObjectURL(downloadObjectUrl);
-            downloadObjectUrl = "";
-        }
-    }
-
-    function nativeDownloadHref(item) {
-        if (!item) return "#";
-        if (item.driveId && window.NamkaranDrive) {
-            return window.NamkaranDrive.driveDownloadUrl(item.driveId);
-        }
-        return item.download || item.src || "#";
-    }
-
-    function syncDownloadLink(item) {
-        if (!lbDownload || !item) return;
-        const filename = safeDownloadName(item);
-        lbDownload.setAttribute("download", filename);
-        lbDownload.setAttribute("target", "_blank");
-        lbDownload.setAttribute("rel", "noopener noreferrer");
-
-        const blob = item.blob || item.saveBlob;
-        if (blob instanceof Blob) {
-            revokeDownloadObjectUrl();
-            downloadObjectUrl = URL.createObjectURL(blob);
-            lbDownload.href = downloadObjectUrl;
-            return;
-        }
-
-        lbDownload.href = nativeDownloadHref(item);
+    function showSaveHint(message) {
+        if (!lbSaveHint) return;
+        const text = String(message || "").trim();
+        lbSaveHint.hidden = !text;
+        lbSaveHint.textContent = text;
     }
 
     function triggerBlobDownload(blob, filename) {
@@ -1378,30 +1350,39 @@
     }
 
     function prefetchSaveBlob(item) {
-        if (!item || item.blob || item.saveBlob || item.savePrefetch) return;
+        if (!item || item.blob || item.saveBlob) return item && item.savePrefetch;
+        if (item.savePrefetch) return item.savePrefetch;
         item.savePrefetch = (async () => {
             try {
                 if (lbImage && lbImage.complete && lbImage.naturalWidth) {
                     try {
                         item.saveBlob = imageToFileSync(lbImage, safeDownloadName(item));
-                        if (lightboxItems[currentIndex] === item) syncDownloadLink(item);
                         return;
                     } catch (_) {
                         /* Drive photos are usually blocked here by the browser */
                     }
                 }
 
-                const urls = [
-                    item.src,
-                    item.driveId && window.NamkaranDrive
-                        ? window.NamkaranDrive.driveImageUrl(item.driveId, "w2000")
-                        : "",
-                ].filter((url) => url && !String(url).startsWith("blob:"));
+                const urls = []
+                    .concat(
+                        item.driveId
+                            ? [
+                                  `/drive-thumb/${encodeURIComponent(item.driveId)}`,
+                                  `/drive-file/${encodeURIComponent(item.driveId)}`,
+                              ]
+                            : []
+                    )
+                    .concat([
+                        item.src,
+                        item.driveId && window.NamkaranDrive
+                            ? window.NamkaranDrive.driveImageUrl(item.driveId, "w2000")
+                            : "",
+                    ])
+                    .filter((url) => url && !String(url).startsWith("blob:"));
 
                 for (const url of urls) {
                     try {
                         item.saveBlob = await fetchAsBlob(url);
-                        if (lightboxItems[currentIndex] === item) syncDownloadLink(item);
                         return;
                     } catch (_) {
                         /* try next source */
@@ -1414,12 +1395,12 @@
                         config,
                         item.driveId
                     );
-                    if (lightboxItems[currentIndex] === item) syncDownloadLink(item);
                 }
             } catch (error) {
                 console.warn("Could not prepare photo for saving", error);
             }
         })();
+        return item.savePrefetch;
     }
 
     function canUseShareSheet(file) {
@@ -1435,6 +1416,8 @@
 
     function savePhotoFile(file, item) {
         const filename = file.name || safeDownloadName(item);
+        showSaveHint("");
+
         if (canUseShareSheet(file)) {
             navigator
                 .share({ files: [file], title: item.name || "Photo" })
@@ -1443,13 +1426,12 @@
                 })
                 .catch((error) => {
                     if (error && error.name === "AbortError") return;
+                    triggerBlobDownload(file, filename);
                     recordGalleryDownload(item);
                 });
             return true;
         }
-        if (/iPhone|iPad|iPod|Android/i.test(navigator.userAgent || "")) {
-            return false;
-        }
+
         triggerBlobDownload(file, filename);
         recordGalleryDownload(item);
         return true;
@@ -1468,7 +1450,21 @@
         }
     }
 
-    async function recordGalleryDownload(item) {
+    function beginSavePrepare(item) {
+        showSaveHint("Preparing photo… tap Save photo again.");
+        const pending = prefetchSaveBlob(item);
+        if (!pending || typeof pending.then !== "function") return;
+        pending.then(() => {
+            if (lightboxItems[currentIndex] !== item) return;
+            if (item.saveBlob || item.blob) {
+                showSaveHint("Ready — tap Save photo.");
+            } else {
+                showSaveHint("Touch and hold the photo, then tap Save Image.");
+            }
+        });
+    }
+
+    function recordGalleryDownload(item) {
         if (!window.NamkaranDrive || !item) return;
         const payload = {
             driveId: item.driveId || item.id || "",
@@ -1476,13 +1472,15 @@
             kind: "image",
             src: item.src || "",
         };
-        try {
-            const config = await window.NamkaranDrive.loadGalleryConfig();
-            await window.NamkaranDrive.recordDownload(config, payload);
-        } catch (error) {
-            window.NamkaranDrive.bumpLocalDownload(payload);
-            console.warn("Could not record download count remotely", error);
-        }
+        window.NamkaranDrive.bumpLocalDownload(payload);
+        window.NamkaranDrive
+            .loadGalleryConfig()
+            .then((config) =>
+                window.NamkaranDrive.recordDownload(config, payload, { skipLocal: true })
+            )
+            .catch((error) => {
+                console.warn("Could not record download count remotely", error);
+            });
     }
 
     /* ---------- Music ---------- */
@@ -1622,17 +1620,12 @@
             });
         }
         lbDownload.addEventListener("click", (event) => {
-            const item = lightboxItems[currentIndex];
-            if (!item) {
-                event.preventDefault();
-                return;
-            }
+            event.preventDefault();
             event.stopPropagation();
-            if (trySavePhotoNow(item)) {
-                event.preventDefault();
-                return;
-            }
-            recordGalleryDownload(item);
+            const item = lightboxItems[currentIndex];
+            if (!item) return;
+            if (trySavePhotoNow(item)) return;
+            beginSavePrepare(item);
         });
         if (lbImage) {
             lbImage.addEventListener("load", () => {
@@ -1640,7 +1633,6 @@
                 if (!item || item.blob || item.saveBlob) return;
                 try {
                     item.saveBlob = imageToFileSync(lbImage, safeDownloadName(item));
-                    syncDownloadLink(item);
                 } catch (_) {
                     prefetchSaveBlob(item);
                 }

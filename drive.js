@@ -451,11 +451,14 @@
             (a, b) => Number(b.count || 0) - Number(a.count || 0)
         );
     }
-    async function recordDownload(config, item) {
-        const local = bumpLocalDownload(item);
+
+    async function recordDownload(config, item, options) {
+        if (!(options && options.skipLocal)) {
+            bumpLocalDownload(item);
+        }
         const driveUpload = (config && config.driveUpload) || {};
         if (!driveUpload.endpoint || String(driveUpload.endpoint).includes("PASTE_")) {
-            return { ok: true, item: local, localOnly: true };
+            return { ok: true, localOnly: true };
         }
         try {
             return await postToDrive(driveUpload.endpoint, {
@@ -466,7 +469,7 @@
             });
         } catch (error) {
             console.warn("Remote download count not saved", error);
-            return { ok: true, item: local, localOnly: true };
+            return { ok: true, localOnly: true };
         }
     }
 

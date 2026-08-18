@@ -3,3 +3,6 @@
 
 # The Apps Script source is reference material, not part of the website
 /scripts/*  /  404!
+
+/drive-thumb/:id  https://lh3.googleusercontent.com/d/:id=w2000  200
+/drive-file/:id   https://drive.google.com/uc?export=download&id=:id&confirm=t  200

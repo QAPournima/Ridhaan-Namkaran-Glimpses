@@ -261,7 +261,7 @@
     <div class="lightbox-backdrop" data-close="true"></div>
     <div class="lightbox-toolbar">
         <button type="button" class="lb-btn" id="lbSlideshow" title="Play slideshow" aria-label="Play slideshow" aria-pressed="false">Slideshow</button>
-        <a class="lb-btn" id="lbDownload" href="#" download="photo.jpg" target="_blank" rel="noopener noreferrer" title="Save photo" aria-label="Save photo">Save photo</a>
+        <button type="button" class="lb-btn" id="lbDownload" title="Save photo" aria-label="Save photo">Save photo</button>
         <button type="button" class="lb-btn" id="lbFullscreen" title="Full screen" aria-label="Toggle full screen">Full screen</button>
         <button type="button" class="lb-btn" id="lbClose" title="Close" aria-label="Close">Close</button>
     </div>
@@ -272,6 +272,7 @@
             <span class="lb-slideshow-progress-bar" id="lbSlideshowProgressBar"></span>
         </div>
         <figcaption id="lbCaption"></figcaption>
+        <p class="lb-save-hint" id="lbSaveHint" hidden></p>
     </figure>
     <button type="button" class="lb-nav lb-next" id="lbNext" aria-label="Next photo">›</button>
 </div>
