@@ -1265,20 +1265,144 @@
         }
     }
 
-    function downloadCurrent() {
-        const item = lightboxItems[currentIndex];
-        if (!item) return;
+    function safeDownloadName(item) {
+        const raw = String((item && item.name) || "photo").trim() || "photo";
+        const base = raw.replace(/[\\/:*?"<>|]+/g, "_");
+        if (/\.(jpe?g|png|webp|gif)$/i.test(base)) return base;
+        return `${base.replace(/\.[^.]+$/, "")}.jpg`;
+    }
+
+    function triggerBlobDownload(blob, filename) {
+        const url = URL.createObjectURL(blob);
         const link = document.createElement("a");
-        link.href = item.download || item.src;
-        if (!/^https?:/i.test(link.href)) {
-            link.download = item.name || "photo.jpg";
-        } else {
-            link.target = "_blank";
-            link.rel = "noopener noreferrer";
-        }
+        link.href = url;
+        link.download = filename;
+        link.rel = "noopener";
         document.body.appendChild(link);
         link.click();
         link.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+    }
+
+    function canvasToBlob(img) {
+        return new Promise((resolve, reject) => {
+            const width = img.naturalWidth || img.width;
+            const height = img.naturalHeight || img.height;
+            if (!width || !height) {
+                reject(new Error("Image is not ready"));
+                return;
+            }
+            const canvas = document.createElement("canvas");
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext("2d");
+            ctx.drawImage(img, 0, 0);
+            canvas.toBlob(
+                (blob) => {
+                    if (!blob) reject(new Error("Could not create file"));
+                    else resolve(blob);
+                },
+                "image/jpeg",
+                0.92
+            );
+        });
+    }
+
+    async function fetchAsBlob(url) {
+        const response = await fetch(url, {
+            cache: "no-store",
+            referrerPolicy: "no-referrer",
+        });
+        if (!response.ok) throw new Error("Download failed");
+        const blob = await response.blob();
+        if (!blob || !blob.size || String(blob.type).includes("text/html")) {
+            throw new Error("Unexpected download");
+        }
+        return blob;
+    }
+
+    async function recordGalleryDownload(item) {
+        if (!window.NamkaranDrive || !item) return;
+        const payload = {
+            driveId: item.driveId || item.id || "",
+            title: item.name || "",
+            kind: "image",
+            src: item.src || "",
+        };
+        try {
+            const config = await window.NamkaranDrive.loadGalleryConfig();
+            await window.NamkaranDrive.recordDownload(config, payload);
+        } catch (error) {
+            window.NamkaranDrive.bumpLocalDownload(payload);
+            console.warn("Could not record download count remotely", error);
+        }
+    }
+
+    async function downloadCurrent() {
+        const item = lightboxItems[currentIndex];
+        if (!item) return;
+
+        const filename = safeDownloadName(item);
+        const originalLabel = lbDownload ? lbDownload.textContent : "";
+        if (lbDownload) {
+            lbDownload.disabled = true;
+            lbDownload.textContent = "Downloading…";
+        }
+
+        let downloaded = false;
+
+        try {
+            if (item.blob instanceof Blob) {
+                triggerBlobDownload(item.blob, filename);
+                downloaded = true;
+                return;
+            }
+
+            try {
+                triggerBlobDownload(await canvasToBlob(lbImage), filename);
+                downloaded = true;
+                return;
+            } catch (_) {
+                /* cross-origin image — try fetch next */
+            }
+
+            const candidates = [
+                lbImage && (lbImage.currentSrc || lbImage.src),
+                item.src,
+                item.driveId && window.NamkaranDrive
+                    ? window.NamkaranDrive.driveImageUrl(item.driveId, "w2000")
+                    : "",
+            ].filter((url) => url && !String(url).startsWith("data:"));
+
+            for (const url of candidates) {
+                try {
+                    triggerBlobDownload(await fetchAsBlob(url), filename);
+                    downloaded = true;
+                    return;
+                } catch (_) {
+                    /* try next source */
+                }
+            }
+
+            const fallback =
+                (item.driveId && window.NamkaranDrive
+                    ? window.NamkaranDrive.driveDownloadUrl(item.driveId)
+                    : "") ||
+                item.download ||
+                item.src;
+            if (fallback && /^https?:/i.test(fallback)) {
+                window.open(fallback, "_blank", "noopener,noreferrer");
+                downloaded = true;
+            }
+        } finally {
+            if (downloaded) {
+                recordGalleryDownload(item);
+            }
+            if (lbDownload) {
+                lbDownload.disabled = false;
+                lbDownload.textContent = originalLabel || "Download";
+            }
+        }
     }
 
     /* ---------- Music ---------- */
@@ -1419,6 +1543,7 @@
         }
         lbDownload.addEventListener("click", (event) => {
             event.preventDefault();
+            event.stopPropagation();
             downloadCurrent();
         });
 

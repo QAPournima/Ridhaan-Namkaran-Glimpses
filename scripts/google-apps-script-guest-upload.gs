@@ -26,6 +26,8 @@
  *   GET  ?action=list        → photos + videos + guest uploads (all statuses)
  *   GET  ?action=listGuests  → guest uploads only
  *   POST { action: "adminLogin", password }   → verify admin password (server-side only)
+ *   GET  ?action=downloadStats → photo download counts for admin
+ *   POST { action: "recordDownload", driveId, title } → increment a photo’s download count
  *   POST { fileName, base64, … }              → save guest file (default status: pending)
  *   POST { action: "setStatus", fileId, status, token } → approve / reject a guest file
  */
@@ -34,8 +36,9 @@ const ROOT_FOLDER_ID = "19kyYw30b3oeF0KuBJZHZMbYH0UzYVc-B";
 const PHOTOS_FOLDER_NAME = "photos";
 const VIDEOS_FOLDER_NAME = "videos";
 const GUEST_FOLDER_NAME = "Guest Uploads";
+const DOWNLOAD_STATS_FILE = "_namkaran-download-stats.json";
 // Bump this whenever you redeploy so the website can detect stale deployments
-const BRIDGE_VERSION = "2026-08-17-admin-auth-v4";
+const BRIDGE_VERSION = "2026-08-18-downloads-v5";
 const ADMIN_TOKEN_TTL_SECONDS = 6 * 60 * 60; // 6 hours
 
 function doGet(e) {
@@ -54,12 +57,16 @@ function doGet(e) {
       });
     }
 
+    if (action === "downloadStats") {
+      return json_(listDownloadStats_());
+    }
+
     return json_({
       ok: true,
       version: BRIDGE_VERSION,
       message: "Ridhaan Namkaran Drive bridge is live.",
       rootFolderId: ROOT_FOLDER_ID,
-      features: ["list", "listGuests", "setStatus", "adminLogin"],
+      features: ["list", "listGuests", "setStatus", "adminLogin", "recordDownload", "downloadStats"],
     });
   } catch (err) {
     return json_({
@@ -76,6 +83,10 @@ function doPost(e) {
 
     if (data && data.action === "adminLogin") {
       return json_(adminLogin_(data.password));
+    }
+
+    if (data && data.action === "recordDownload") {
+      return json_(recordDownload_(data));
     }
 
     if (data && data.action === "setStatus") {
@@ -181,6 +192,69 @@ function listGuestFiles_() {
   });
 
   return out;
+}
+
+function getDownloadStatsFile_(createIfMissing) {
+  const root = getRootFolder_();
+  const files = root.getFilesByName(DOWNLOAD_STATS_FILE);
+  if (files.hasNext()) {
+    return files.next();
+  }
+  if (createIfMissing) {
+    return root.createFile(DOWNLOAD_STATS_FILE, "{}", MimeType.PLAIN_TEXT);
+  }
+  return null;
+}
+
+function readDownloadStats_() {
+  const file = getDownloadStatsFile_(false);
+  if (!file) return {};
+  try {
+    const parsed = JSON.parse(file.getBlob().getDataAsString() || "{}");
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch (err) {
+    return {};
+  }
+}
+
+function writeDownloadStats_(stats) {
+  const file = getDownloadStatsFile_(true);
+  file.setContent(JSON.stringify(stats));
+}
+
+function recordDownload_(data) {
+  const id = String((data && (data.driveId || data.id)) || "").trim();
+  if (!id) {
+    return { ok: false, message: "Missing photo id." };
+  }
+
+  const stats = readDownloadStats_();
+  const prev = stats[id] || {};
+  const next = {
+    driveId: id,
+    title: String((data && data.title) || prev.title || id),
+    kind: String((data && data.kind) || prev.kind || "image"),
+    count: Number(prev.count || 0) + 1,
+    lastDownloadedAt: Date.now(),
+  };
+  stats[id] = next;
+  writeDownloadStats_(stats);
+  return { ok: true, item: next, version: BRIDGE_VERSION };
+}
+
+function listDownloadStats_() {
+  const stats = readDownloadStats_();
+  const downloads = Object.keys(stats).map(function (key) {
+    return stats[key];
+  });
+  downloads.sort(function (a, b) {
+    return Number(b.count || 0) - Number(a.count || 0);
+  });
+  return {
+    ok: true,
+    version: BRIDGE_VERSION,
+    downloads: downloads,
+  };
 }
 
 function getAdminPassword_() {

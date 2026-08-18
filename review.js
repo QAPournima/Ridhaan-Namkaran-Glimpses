@@ -18,10 +18,12 @@
     const countPending = document.getElementById("countPending");
     const countApproved = document.getElementById("countApproved");
     const countRejected = document.getElementById("countRejected");
+    const countDownloads = document.getElementById("countDownloads");
     const driveStatus = document.getElementById("driveStatus");
 
     let galleryConfig = null;
     let records = [];
+    let downloadRecords = [];
     let activeStatus = STATUS_PENDING;
 
     function isAdmin() {
@@ -127,6 +129,25 @@
             );
         }
 
+        try {
+            const stats = await window.NamkaranDrive.loadDownloadStats(galleryConfig);
+                downloadRecords = (stats || []).map((item) => ({
+                    id: item.driveId,
+                    driveId: item.driveId,
+                    name: item.title || "Photo",
+                    count: Number(item.count || 0),
+                    lastDownloadedAt: item.lastDownloadedAt || 0,
+                    src:
+                        item.src ||
+                        (window.NamkaranDrive.extractDriveId(item.driveId)
+                            ? window.NamkaranDrive.driveImageUrl(item.driveId)
+                            : item.driveId),
+                }));
+        } catch (statsError) {
+            console.warn(statsError);
+            downloadRecords = [];
+        }
+
         updateCounts();
         renderList();
     }
@@ -138,12 +159,72 @@
         countPending.textContent = String(pending);
         countApproved.textContent = String(approved);
         countRejected.textContent = String(rejected);
+        if (countDownloads) {
+            const totalDownloads = downloadRecords.reduce((sum, item) => sum + Number(item.count || 0), 0);
+            countDownloads.textContent = String(totalDownloads);
+        }
+    }
+
+    function renderDownloads() {
+        reviewGrid.innerHTML = "";
+        reviewEmpty.hidden = downloadRecords.length > 0;
+        if (!downloadRecords.length) {
+            reviewEmpty.textContent = "No photo downloads recorded yet.";
+            return;
+        }
+        reviewEmpty.textContent = "No items in this list.";
+
+        downloadRecords.forEach((record) => {
+            const card = document.createElement("article");
+            card.className = "review-card";
+
+            const media = document.createElement("div");
+            media.className = "review-media";
+            const img = document.createElement("img");
+            img.alt = record.name;
+            img.referrerPolicy = "no-referrer";
+            if (
+                record.driveId &&
+                window.NamkaranDrive &&
+                window.NamkaranDrive.extractDriveId(record.driveId)
+            ) {
+                window.NamkaranDrive.bindDriveImage(img, record.driveId, record.src);
+            } else {
+                img.src = record.src || record.driveId;
+            }
+            media.appendChild(img);
+
+            const pill = document.createElement("span");
+            pill.className = "review-status-pill is-approved";
+            pill.textContent = `${record.count} download${record.count === 1 ? "" : "s"}`;
+            media.appendChild(pill);
+
+            const body = document.createElement("div");
+            body.className = "review-card-body";
+            const title = document.createElement("h3");
+            title.textContent = record.name;
+            const meta = document.createElement("p");
+            meta.className = "review-meta";
+            const when = record.lastDownloadedAt
+                ? new Date(record.lastDownloadedAt).toLocaleString()
+                : "";
+            meta.textContent = when ? `Last downloaded ${when}` : "Downloaded from the gallery";
+            body.append(title, meta);
+            card.append(media, body);
+            reviewGrid.appendChild(card);
+        });
     }
 
     function renderList() {
+        if (activeStatus === "downloads") {
+            renderDownloads();
+            return;
+        }
+
         const filtered = records.filter((r) => r.status === activeStatus);
         reviewGrid.innerHTML = "";
         reviewEmpty.hidden = filtered.length > 0;
+        reviewEmpty.textContent = "No items in this list.";
 
         filtered.forEach((record) => {
             const card = document.createElement("article");
@@ -315,13 +396,33 @@
     });
 
     document.querySelectorAll(".review-tab").forEach((tab) => {
-        tab.addEventListener("click", () => {
+        tab.addEventListener("click", async () => {
             activeStatus = tab.dataset.status;
             document.querySelectorAll(".review-tab").forEach((btn) => {
                 const on = btn === tab;
                 btn.classList.toggle("is-active", on);
                 btn.setAttribute("aria-selected", String(on));
             });
+            if (activeStatus === "downloads" && window.NamkaranDrive && galleryConfig) {
+                try {
+                    const stats = await window.NamkaranDrive.loadDownloadStats(galleryConfig);
+                    downloadRecords = (stats || []).map((item) => ({
+                        id: item.driveId,
+                        driveId: item.driveId,
+                        name: item.title || "Photo",
+                        count: Number(item.count || 0),
+                        lastDownloadedAt: item.lastDownloadedAt || 0,
+                        src:
+                            item.src ||
+                            (window.NamkaranDrive.extractDriveId(item.driveId)
+                                ? window.NamkaranDrive.driveImageUrl(item.driveId)
+                                : item.driveId),
+                    }));
+                    updateCounts();
+                } catch (error) {
+                    console.warn(error);
+                }
+            }
             renderList();
         });
     });

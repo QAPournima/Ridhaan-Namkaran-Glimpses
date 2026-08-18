@@ -63,7 +63,7 @@
         <div class="section-heading">
             <p class="section-eyebrow">MODERATION</p>
             <h2>Guest upload review</h2>
-            <p class="section-note">Pending items are hidden from guests until you approve them. Files live in Google Drive → Guest Uploads.</p>
+            <p class="section-note">Pending items are hidden from guests until you approve them. The Downloads tab shows which photos guests saved, and how many times.</p>
         </div>
 
         <p class="drive-status" id="driveStatus" role="status" hidden></p>
@@ -77,6 +77,9 @@
             </button>
             <button type="button" class="review-tab" data-status="rejected" aria-selected="false">
                 Rejected <span id="countRejected">0</span>
+            </button>
+            <button type="button" class="review-tab" data-status="downloads" aria-selected="false">
+                Downloads <span id="countDownloads">0</span>
             </button>
         </div>
 

@@ -100,6 +100,7 @@
 
         return {
             id: item.id || driveId || src || `photo-${index}`,
+            driveId: driveId || "",
             src,
             name: title,
             download,
@@ -118,6 +119,7 @@
 
         return {
             id: item.id || driveId || src || `video-${index}`,
+            driveId: driveId || "",
             src,
             name: title,
             download,
@@ -387,6 +389,108 @@
         }
     }
 
+    const DOWNLOAD_STATS_KEY = "namkaran_download_stats";
+
+    function readLocalDownloadStats() {
+        try {
+            const parsed = JSON.parse(localStorage.getItem(DOWNLOAD_STATS_KEY) || "{}");
+            return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : {};
+        } catch (_) {
+            return {};
+        }
+    }
+
+    function listLocalDownloadStats() {
+        return Object.keys(readLocalDownloadStats())
+            .map((key) => readLocalDownloadStats()[key])
+            .filter(Boolean)
+            .sort((a, b) => Number(b.count || 0) - Number(a.count || 0));
+    }
+
+    function bumpLocalDownload(item) {
+        const id = String((item && (item.driveId || item.id)) || "").trim();
+        if (!id) return null;
+        const stats = readLocalDownloadStats();
+        const prev = stats[id] || {};
+        const next = {
+            driveId: id,
+            title: (item && (item.title || item.name)) || prev.title || id,
+            kind: (item && item.kind) || prev.kind || "image",
+            count: Number(prev.count || 0) + 1,
+            lastDownloadedAt: Date.now(),
+            src: (item && item.src) || prev.src || "",
+        };
+        stats[id] = next;
+        localStorage.setItem(DOWNLOAD_STATS_KEY, JSON.stringify(stats));
+        return next;
+    }
+
+    function mergeDownloadStats(remoteItems, localItems) {
+        const byId = new Map();
+        []
+            .concat(remoteItems || [])
+            .concat(localItems || [])
+            .forEach((item) => {
+                if (!item) return;
+                const id = String(item.driveId || item.id || "").trim();
+                if (!id) return;
+                const prev = byId.get(id) || {};
+                byId.set(id, {
+                    driveId: id,
+                    title: item.title || item.name || prev.title || id,
+                    kind: item.kind || prev.kind || "image",
+                    count: Math.max(Number(item.count || 0), Number(prev.count || 0)),
+                    lastDownloadedAt: Math.max(
+                        Number(item.lastDownloadedAt || 0),
+                        Number(prev.lastDownloadedAt || 0)
+                    ),
+                    src: item.src || prev.src || "",
+                });
+            });
+        return Array.from(byId.values()).sort(
+            (a, b) => Number(b.count || 0) - Number(a.count || 0)
+        );
+    }
+    async function recordDownload(config, item) {
+        const local = bumpLocalDownload(item);
+        const driveUpload = (config && config.driveUpload) || {};
+        if (!driveUpload.endpoint || String(driveUpload.endpoint).includes("PASTE_")) {
+            return { ok: true, item: local, localOnly: true };
+        }
+        try {
+            return await postToDrive(driveUpload.endpoint, {
+                action: "recordDownload",
+                driveId: (item && (item.driveId || item.id)) || "",
+                title: (item && (item.title || item.name)) || "",
+                kind: (item && item.kind) || "image",
+            });
+        } catch (error) {
+            console.warn("Remote download count not saved", error);
+            return { ok: true, item: local, localOnly: true };
+        }
+    }
+
+    async function loadDownloadStats(config) {
+        let remote = [];
+        const endpoint = config && config.driveUpload && config.driveUpload.endpoint;
+        if (endpoint && !String(endpoint).includes("PASTE_")) {
+            try {
+                const listUrl = endpoint.includes("?")
+                    ? `${endpoint}&action=downloadStats`
+                    : `${endpoint}?action=downloadStats`;
+                const response = await fetch(listUrl, { cache: "no-store" });
+                const text = await response.text();
+                const data = JSON.parse(text);
+                if (data && data.ok !== false && Array.isArray(data.downloads)) {
+                    remote = data.downloads;
+                }
+            } catch (error) {
+                console.warn("Remote download stats unavailable", error);
+            }
+        }
+        return mergeDownloadStats(remote, listLocalDownloadStats());
+    }
+
     global.NamkaranDrive = {
         extractDriveId,
         driveImageUrl,
@@ -404,5 +508,10 @@
         uploadGuestFile,
         setGuestStatus,
         adminLogin,
+        recordDownload,
+        loadDownloadStats,
+        bumpLocalDownload,
+        listLocalDownloadStats,
+        mergeDownloadStats,
     };
 })(window);
