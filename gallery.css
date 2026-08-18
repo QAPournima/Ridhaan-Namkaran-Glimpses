@@ -1531,6 +1531,10 @@ a.lb-btn {
         font-size: 12px;
     }
 
+    #lbDownload {
+        display: none !important;
+    }
+
     .lightbox-figure {
         max-height: 78vh;
         margin-top: 52px;

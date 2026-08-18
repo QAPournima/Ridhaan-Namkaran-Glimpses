@@ -1152,7 +1152,8 @@
             lbImage.onerror = null;
             lbImage.src = item.src;
         }
-        prefetchSaveBlob(item);
+        if (!isPhoneGallery()) prefetchSaveBlob(item);
+        updateSaveChrome();
     }
 
     function updateCaption(item) {
@@ -1171,6 +1172,7 @@
         updateLightbox({ animate: false });
         lightbox.hidden = false;
         document.body.style.overflow = "hidden";
+        updateSaveChrome();
         lbClose.focus();
     }
 
@@ -1275,11 +1277,44 @@
         return `${base.replace(/\.[^.]+$/, "")}.jpg`;
     }
 
+    function isPhoneGallery() {
+        try {
+            if (window.matchMedia("(max-width: 720px)").matches) return true;
+            if (window.matchMedia("(hover: none) and (pointer: coarse)").matches) {
+                return true;
+            }
+        } catch (_) {
+            /* ignore */
+        }
+        return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent || "");
+    }
+
+    function updateSaveChrome() {
+        const phone = isPhoneGallery();
+        if (lbDownload) lbDownload.hidden = phone;
+        if (phone) {
+            showSaveHint("Touch and hold the photo, then tap Save Image.");
+        } else {
+            showSaveHint("");
+        }
+    }
+
     function showSaveHint(message) {
         if (!lbSaveHint) return;
         const text = String(message || "").trim();
         lbSaveHint.hidden = !text;
         lbSaveHint.textContent = text;
+    }
+
+    function triggerNamedDownload(href, filename) {
+        if (!href) return;
+        const link = document.createElement("a");
+        link.href = href;
+        link.download = filename;
+        link.rel = "noopener";
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
     }
 
     function triggerBlobDownload(blob, filename) {
@@ -1403,37 +1438,11 @@
         return item.savePrefetch;
     }
 
-    function canUseShareSheet(file) {
-        try {
-            return Boolean(
-                navigator.canShare &&
-                    navigator.canShare({ files: [file] })
-            );
-        } catch (_) {
-            return false;
-        }
-    }
-
     function savePhotoFile(file, item) {
         const filename = file.name || safeDownloadName(item);
-        showSaveHint("");
-
-        if (canUseShareSheet(file)) {
-            navigator
-                .share({ files: [file], title: item.name || "Photo" })
-                .then(() => {
-                    recordGalleryDownload(item);
-                })
-                .catch((error) => {
-                    if (error && error.name === "AbortError") return;
-                    triggerBlobDownload(file, filename);
-                    recordGalleryDownload(item);
-                });
-            return true;
-        }
-
         triggerBlobDownload(file, filename);
         recordGalleryDownload(item);
+        showSaveHint("");
         return true;
     }
 
@@ -1450,18 +1459,30 @@
         }
     }
 
-    function beginSavePrepare(item) {
-        showSaveHint("Preparing photo… tap Save photo again.");
-        const pending = prefetchSaveBlob(item);
-        if (!pending || typeof pending.then !== "function") return;
-        pending.then(() => {
-            if (lightboxItems[currentIndex] !== item) return;
-            if (item.saveBlob || item.blob) {
-                showSaveHint("Ready — tap Save photo.");
-            } else {
-                showSaveHint("Touch and hold the photo, then tap Save Image.");
-            }
-        });
+    async function savePhotoOnDesktop(item) {
+        if (!item || isPhoneGallery()) return;
+        if (trySavePhotoNow(item)) return;
+
+        showSaveHint("Saving…");
+        try {
+            await prefetchSaveBlob(item);
+        } catch (_) {
+            /* fall through to Drive file link */
+        }
+
+        if (trySavePhotoNow(item)) return;
+
+        if (item.driveId) {
+            triggerNamedDownload(
+                `/drive-file/${encodeURIComponent(item.driveId)}`,
+                safeDownloadName(item)
+            );
+            recordGalleryDownload(item);
+            showSaveHint("");
+            return;
+        }
+
+        showSaveHint("Could not save this photo. Try again in a moment.");
     }
 
     function recordGalleryDownload(item) {
@@ -1623,14 +1644,13 @@
             event.preventDefault();
             event.stopPropagation();
             const item = lightboxItems[currentIndex];
-            if (!item) return;
-            if (trySavePhotoNow(item)) return;
-            beginSavePrepare(item);
+            if (!item || isPhoneGallery()) return;
+            savePhotoOnDesktop(item);
         });
         if (lbImage) {
             lbImage.addEventListener("load", () => {
                 const item = lightboxItems[currentIndex];
-                if (!item || item.blob || item.saveBlob) return;
+                if (!item || isPhoneGallery() || item.blob || item.saveBlob) return;
                 try {
                     item.saveBlob = imageToFileSync(lbImage, safeDownloadName(item));
                 } catch (_) {
@@ -1638,6 +1658,9 @@
                 }
             });
         }
+        window.addEventListener("resize", () => {
+            if (!lightbox.hidden) updateSaveChrome();
+        });
 
         lightbox.addEventListener("click", (event) => {
             if (event.target.dataset.close === "true") {
